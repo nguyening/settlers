@@ -103,7 +103,8 @@ Board.prototype = {
 
 // relations
 // based on those presented in http://www-cs-students.stanford.edu/~amitp/game-programming/grids/
-   neighbors : function (x, y) {
+   neighbors : function (face) {
+      var x = face.x, y = face.y;
       if(y % 2) {
          return [
             [x, y+1],
@@ -126,7 +127,8 @@ Board.prototype = {
       }
    },
 
-   borders : function (x, y) {
+   borders : function (face) {
+      var x = face.x, y = face.y;
       if(y % 2) {
          return [
             [x, y, 'N'],
@@ -149,7 +151,8 @@ Board.prototype = {
       }      
    },
 
-   corners : function (x, y) {
+   corners : function (face) {
+      var x = face.x, y = face.y;
       if(y % 2) {
          return [
             [x, y, 'N'],
@@ -172,7 +175,8 @@ Board.prototype = {
       }     
    },
 
-   endpoints : function (x, y, label) {
+   endpoints : function (edge) {
+      var x = edge.x, y = edge.y, label = edge.label;
       if(label == 'N') {
          if(y % 2) 
             return [[x, y, 'N'], [x-1, y-1, 'S']];
@@ -195,7 +199,8 @@ Board.prototype = {
       return false;
    },
 
-   touches : function (x, y, label) {
+   touches : function (vertex) {
+      var x = vertex.x, y = vertex.y, label = vertex.label;
       if(label == 'N') {
          if(y % 2)
             return [[x, y], [x-1, y-1], [x, y-1]];
@@ -212,7 +217,8 @@ Board.prototype = {
      return false; 
    },
 
-   protrudes : function (x, y, label) {
+   protrudes : function (vertex) {
+      var x = vertex.x, y = vertex.y, label = vertex.label;
       if(label == 'N') {
          if(y % 2) {
             return [
@@ -250,9 +256,24 @@ Board.prototype = {
 // game-logic
 
    canBuild : function (type, data=null) {
+      if(data == null)
+         return false;
+      var intersect = function (a, b) {
+         var t;
+         if(b.length > a.length) { t = b; b = a; a = t; }   // iterate over shorter array
+         return a.filter(function (el) {
+            return b.indexOf(el) !== -1);
+         });
+      };
+
       if(type == 'road') {
          var state = this.state;
-         if(state.roads[state.currentPlayer])
+         var availableEndPts = $.map(state.roads[state.currentPlayer], function (edge, idx) {
+            this.endpoints(val);
+         });
+         var roadEndPts = this.endpoints(data);
+
+         if(intersect(availableEndPts, roadEndPts))
             return true;
          else
             return false;
