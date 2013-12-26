@@ -88,23 +88,23 @@ Board.prototype = {
 
    getHexEdges : function (_x, _y) {
       return [
-         {x: _x, y: _y, side: 'N'},
-         {x: _x, y: _y, side: 'W'},
-         {x: _x, y: _y, side: 'S'},
+         [_x, _y, 'N'],
+         [_x, _y, 'W'],
+         [_x, _y, 'S'],
       ];
    },
 
    getHexVertices : function (_x, _y) {
       return [
-         {x: _x, y: _y, side: 'N'},
-         {x: _x, y: _y, side: 'S'},
+         [_x, _y, 'N'],
+         [_x, _y, 'S'],
       ];
    },
 
 // relations
 // based on those presented in http://www-cs-students.stanford.edu/~amitp/game-programming/grids/
    neighbors : function (face) {
-      var x = face.x, y = face.y;
+      var x = face[0], y = face[1];
       if(y % 2 == 0) {
          return [
             [x, y+1],
@@ -128,7 +128,7 @@ Board.prototype = {
    },
 
    borders : function (face) {
-      var x = face.x, y = face.y;
+      var x = face[0], y = face[1];
       if(y % 2 == 0) {
          return [
             [x, y, 'N'],
@@ -152,7 +152,7 @@ Board.prototype = {
    },
 
    corners : function (face) {
-      var x = face.x, y = face.y;
+      var x = face[0], y = face[1];
       if(y % 2 == 0) {
          return [
             [x, y, 'N'],
@@ -176,7 +176,7 @@ Board.prototype = {
    },
 
    endpoints : function (edge) {
-      var x = edge.x, y = edge.y, label = edge.label;
+      var x = edge[0], y = edge[1], label = edge[2];
       if(label == 'N') {
          if(y % 2 == 0) 
             return [[x, y, 'N'], [x-1, y-1, 'S']];
@@ -200,7 +200,7 @@ Board.prototype = {
    },
 
    touches : function (vertex) {
-      var x = vertex.x, y = vertex.y, label = vertex.label;
+      var x = vertex[0], y = vertex[1], label = vertex[2];
       if(label == 'N') {
          if(y % 2 == 0)
             return [[x, y], [x-1, y-1], [x, y-1]];
@@ -218,7 +218,7 @@ Board.prototype = {
    },
 
    protrudes : function (vertex) {
-      var x = vertex.x, y = vertex.y, label = vertex.label;
+      var x = vertex[0], y = vertex[1], label = vertex[2];
       if(label == 'N') {
          if(y % 2 == 0) {
             return [
@@ -253,23 +253,88 @@ Board.prototype = {
       }      
    },
 
+   adjacent : function (vertex) {
+      var x = vertex[0], y = vertex[1], label = vertex[2];
+      if(label == 'N') {
+         if(y % 2 == 0) {
+            return [
+               [x, y-2, 'S'],
+               [x-1, y-1, 'S'],
+               [x, y-1, 'S'],
+            ];
+         }
+         else {
+            return [
+               [x, y-2, 'S'],
+               [x, y-1, 'S'],
+               [x+1, y-1, 'S'],
+            ];
+         }
+      }
+      else if(label == 'S') {
+         if(y % 2 == 0) {
+            return [
+               [x, y+2, 'N'],
+               [x-1, y+1, 'N'],
+               [x, y+1, 'N'],
+            ];
+         }
+         else {
+            return [
+               [x, y+2, 'N'],
+               [x, y+1, 'N'],
+               [x+1, y+1, 'N'],
+            ];
+         }
+      }        
+   },
+
 // game-logic
 
    canBuild : function (build, data) {
       if(data == null)
          return false;
 
+      var logic = this;
+      var state = logic.state;
+
+      var intersectEndPts = function (a, b) {
+         var t;
+         if(a.length < b.length) {
+            t = a;
+            a = b;
+            b = t;
+         }
+
+         a_vertices = a.toString();
+         for(i = 0; i < b.length; i++) {
+            b_vertex = b[i].toString();
+            if(a_vertices.indexOf(b_vertex) > -1)
+               return true;
+         }
+         return false;
+      };
+
       if(build == 'road') {
-         var logic = this;
-         var state = logic.state;
-         var availableEndPts = ($.map(state.roads[state.currentPlayer], function (edge, idx) {
+         var availableEndPts = $.map(state.roads[state.currentPlayer], function (edge, idx) {
             return logic.endpoints(edge);
-         })).toString();
+         });
          var roadEndPts = this.endpoints(data);
-         if(availableEndPts.indexOf(roadEndPts[0].toString()) > -1 | availableEndPts.indexOf(roadEndPts[1].toString()) > -1)
-            return true;
-         else
-            return false;
+         return intersectEndPts(availableEndPts, roadEndPts);
+      }
+      else if(build == 'settlement') {
+         var availableEndPts = $.map(state.roads[state.currentPlayer], function (edge, idx) {
+            return logic.endpoints(edge);
+         });
+         var selectedVertex = [data];
+
+         var adjacentVertices = this.adjacent(data);
+
+         var currentSettlements = [].concat.apply([], state.settlements);
+         console.log(currentSettlements);
+         console.log(adjacentVertices);
+         console.log(intersectEndPts(currentSettlements, adjacentVertices));
+         return (intersectEndPts(availableEndPts, selectedVertex) && !intersectEndPts(currentSettlements, adjacentVertices));
       }
       else
          return false;
@@ -284,11 +349,19 @@ Board.prototype = {
          height: 1000
       });
 
-      var layer = new Kinetic.Layer({
+      var hexLayer = new Kinetic.Layer({
          offsetX: -100,
          offsetY: -100
       });
-
+      var edgeLayer = new Kinetic.Layer({
+         offsetX: -100,
+         offsetY: -100
+      });
+      var vertexLayer = new Kinetic.Layer({
+         offsetX: -100,
+         offsetY: -100
+      });
+      
 
       var hex, _x, _y;
       var vertices, line, x_offset, y_offset;
@@ -296,6 +369,7 @@ Board.prototype = {
          hexWidth = 2*hexRadius*Math.cos(30 * Math.PI / 180),
          hexHeight = hexRadius*1.5;
       var hexEdgeThickness = 2;
+      var hexVertexRadius = 10;
 
       for(i = 0; i < this.height; i++) {
          for(j = 0; j < this.width; j++) {
@@ -309,7 +383,7 @@ Board.prototype = {
                radius: hexRadius,
                fill: 'green',
             });       
-            layer.add(hex);
+            hexLayer.add(hex);
 
             var text = new Kinetic.Text({
                x: _x,
@@ -319,19 +393,10 @@ Board.prototype = {
                fontFamily: 'Calibri',
                fill: 'black',
             });
-            layer.add(text);
+            hexLayer.add(text);
 
             x_offset = hexRadius * Math.cos(30 * Math.PI / 180);
             y_offset = hexRadius * 0.5;
-
-            // vertices = [
-            //    [_x, _y + hexRadius],
-            //    [_x + x_offset, _y + y_offset],
-            //    [_x + x_offset, _y - y_offset],
-            //    [_x, _y - hexRadius],
-            //    [_x - x_offset, _y - y_offset],
-            //    [_x - x_offset, _y + y_offset],
-            // ];
 
             vertices = [
                [_x, _y - hexRadius],
@@ -341,7 +406,6 @@ Board.prototype = {
             ];
             for(k = 0; k < vertices.length - 1; k++) {
 
-               // var pointsToDraw = (k + 1 == vertices.length) ? [vertices[k], vertices[0]] : [vertices[k], vertices[k+1]];
                var pointsToDraw = [vertices[k], vertices[k+1]];
                line = new Kinetic.Line({
                   points: pointsToDraw,
@@ -362,42 +426,78 @@ Board.prototype = {
                      context.closePath();
                      context.fillStrokeShape(this);
                   },
-                  coords: {x: j, y: i, label: this.edgeLabels[k]},
+                  coords: [j, i, this.edgeLabels[k]],
                });
                line.on('mouseover', function () {
                   this.setStrokeWidth(hexEdgeThickness*5);
-                  layer.draw();
+                  edgeLayer.draw();
                });
 
                line.on('mouseleave', function () {
                   this.setStrokeWidth(hexEdgeThickness);
-                  layer.draw();
+                  edgeLayer.draw();
                })
-               layer.add(line);
+               edgeLayer.add(line);
             }
 
+            var circle = new Kinetic.Circle({
+               x: _x,
+               y: _y - hexRadius,
+               radius: hexVertexRadius,
+               fill: 'green',
+               stroke: 'black',
+               strokeWidth: 2,
+               
+               coords: [j, i, this.vertexLabels[0]],
+            });
 
+            circle.on('mouseover', function () {
+               this.setRadius(hexVertexRadius*2);
+               vertexLayer.draw();
+            });
+
+            circle.on('mouseleave', function () {
+               this.setRadius(hexVertexRadius);
+               vertexLayer.draw();
+            });
+
+            vertexLayer.add(circle);
+            circle = circle.clone();
+            circle.setAttr('y', _y + hexRadius);
+            circle.setAttr('coords', [j, i, this.vertexLabels[1]]);
+
+            vertexLayer.add(circle);
+            // END LOOP OVER GRID
          }
       }
 
 
       var logic = this;
-      layer.on('click', function (evt) {
-         // console.log(evt.targetNode);
-         if(evt.targetNode instanceof Kinetic.Line) {
-            var line = evt.targetNode;
-            var edge = line.getAttr('coords');
+      edgeLayer.on('click', function (evt) {
+         var line = evt.targetNode;
+         var edge = line.getAttr('coords');
 
-            if((evt.which == 1 && logic.canBuild('road', edge)) || evt.which == 2) {
-               logic.state.roads[logic.state.currentPlayer].push(edge);
-               line.setStroke('red');
-               this.draw();
-            }
+         if((evt.which == 1 && logic.canBuild('road', edge)) || evt.which == 2) {
+            logic.state.roads[logic.state.currentPlayer].push(edge);
+            line.setStroke('red');
+            edgeLayer.draw();
          }
       });
 
-      // add the layer to the stage
-      stage.add(layer);
+      vertexLayer.on('click', function (evt) {
+         console.log(evt.targetNode);
+         var circle = evt.targetNode;
+         var vertex = circle.getAttr('coords');
+         if((evt.which == 1 && logic.canBuild('settlement', vertex)) || evt.which == 2) {
+            logic.state.settlements[logic.state.currentPlayer].push(vertex);
+            circle.setFill('red');
+            vertexLayer.draw();
+         }
+      })
+
+      stage.add(hexLayer);
+      stage.add(edgeLayer);
+      stage.add(vertexLayer);
    }
 };
 
