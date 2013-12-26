@@ -1,0 +1,17 @@
+{
+  "name": "settlers",
+  "version": "0.0.0",
+  "description": "an online settlers implementation",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "Richard Nguyen",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "jade": "~1.0.0",
+    "express": "~3.4.7",
+    "socket.io": "~0.9.16"
+  }
+}
