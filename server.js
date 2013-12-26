@@ -17,7 +17,7 @@ app.get('/', function(req, res){
 	res.render('home.jade');
 });
 
-server.listen(3000);
+server.listen(process.env.PORT || 3000);	// heroku dynamically assigns port
 console.log('Express server started on port %s', server.address().port);
 
 io.sockets.on('connection', function (socket) {
