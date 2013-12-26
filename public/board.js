@@ -3,50 +3,27 @@
    1 desert
 
    offset coordinates
-
-var Game = {
-   settlements : [
-      0 : [{x:, y:, side: , type: }],
-      1 : []
-   ],
-   roads : [],
-   hands : [],
-   baron : null
-};
 */
+var Globals = {
+   terrains : [1,2,3,4,5],
+   edgeLabels : ['N', 'W', 'S'],
+   vertexLabels : ['N', 'S'],
+};
 
-var Board = function (_width, _height) {
-   this.grid = [];
-   this.terrains = [1,2,3,4,5];
+
+var LogicalBoard = function (_width, _height) {   
 
    this.width = _width;
    this.height = _height;
 
-   this.edgeLabels = ['N', 'W', 'S'];
-   this.vertexLabels = ['N', 'S'];
-
    this.state = {
-      settlements : [
-         [],
-         [],
-         [],
-         []
-      ],
-      roads : [
-         [],
-         [],
-         [],
-         []
-      ],
-      hands : [
-         [],
-         [],
-         [],
-         []
-      ],
+      settlements : [[],[],[],[]],
+      roads : [[],[],[],[]],
+      hands : [[],[],[],[]],
       baron : null,
       currentPlayer : 0,
    };
+
 
    this.Hex = function (_resource, _roll, _x, _y) {
       this.resource = _resource;
@@ -65,16 +42,16 @@ var Board = function (_width, _height) {
       }
    };
 
-
+   this.init.apply(this, arguments);
 };
 
-Board.prototype = {
-   construct : function () {
+LogicalBoard.prototype = {
+   init : function (width, height) {
       var row, terrain;
-      for(i = 0; i < this.height; i++) {
+      for(i = 0; i < height; i++) {
          row = [];
-         for(j = 0; j < this.width; j++) {
-            terrain = Math.floor(Math.random() * this.terrains.length);
+         for(j = 0; j < width; j++) {
+            terrain = Math.floor(Math.random() * Globals.terrains.length);
             row.push(new this.Hex(terrain, j+i));
          }
 
@@ -331,59 +308,88 @@ Board.prototype = {
          var adjacentVertices = this.adjacent(data);
 
          var currentSettlements = [].concat.apply([], state.settlements);
-         console.log(currentSettlements);
-         console.log(adjacentVertices);
-         console.log(intersectEndPts(currentSettlements, adjacentVertices));
          return (intersectEndPts(availableEndPts, selectedVertex) && !intersectEndPts(currentSettlements, adjacentVertices));
       }
       else
          return false;
-   },
+   },   
+}
 
-// drawing
+var GraphicalBoard = function (_width, _height) {
+   this.grid = [];
 
-   draw : function (argument) {
-      var stage = new Kinetic.Stage({
-         container: 'container',
-         width: 1000,
-         height: 1000
-      });
+   this.gridWidth = _width;
+   this.gridHeight = _height;
+   this.canvasWidth = 1000;
+   this.canvasHeight = 1000;
+   this.canvasOffsetX = -100;
+   this.canvasOffsetY = -100;
 
-      var hexLayer = new Kinetic.Layer({
-         offsetX: -100,
-         offsetY: -100
-      });
-      var edgeLayer = new Kinetic.Layer({
-         offsetX: -100,
-         offsetY: -100
-      });
-      var vertexLayer = new Kinetic.Layer({
-         offsetX: -100,
-         offsetY: -100
-      });
-      
+   this.hexRadius = 50;
+   this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
+   this.hexHeight = this.hexRadius*1.5;
+   this.hexEdgeThickness = 2;
+   this.hexVertexRadius = 10;
 
-      var hex, _x, _y;
-      var vertices, line, x_offset, y_offset;
-      var hexRadius = 50, 
-         hexWidth = 2*hexRadius*Math.cos(30 * Math.PI / 180),
-         hexHeight = hexRadius*1.5;
-      var hexEdgeThickness = 2;
-      var hexVertexRadius = 10;
+   this.stage = new Kinetic.Stage({
+      container: 'container',
+      width: this.canvasWidth,
+      height: this.canvasHeight
+   });
 
-      for(i = 0; i < this.height; i++) {
-         for(j = 0; j < this.width; j++) {
-            _x = (2 * j + 1 + (i&1)) * (hexWidth/2);
+   this.hexLayer = new Kinetic.Layer({
+      offsetX: this.canvasOffsetX,
+      offsetY: this.canvasOffsetY
+   });
+   this.edgeLayer = new Kinetic.Layer({
+      offsetX: this.canvasOffsetX,
+      offsetY: this.canvasOffsetY
+   });
+   this.vertexLayer = new Kinetic.Layer({
+      offsetX: this.canvasOffsetX,
+      offsetY: this.canvasOffsetY
+   });
+   
+   this.init.apply(this);
+};
+
+GraphicalBoard.prototype = {
+   init : function () {
+      var gridObject;
+      var hex, line, circle, edge_vertices, edge;
+      var _x, _y, x_offset, y_offset;
+
+      var gb = this;
+      var hexRadius = this.hexRadius;
+      var hexWidth = this.hexWidth;
+      var hexHeight = this.hexHeight;
+      var hexEdgeThickness = this.hexEdgeThickness;
+      var hexVertexRadius = this.hexVertexRadius;
+      var row;
+
+      for(i = 0; i < this.gridHeight; i++) {
+         row = [];
+         for(j = 0; j < this.gridWidth; j++) {
+            gridObject = {
+               face : null,
+               edges : [],
+               vertices : [],
+            };
+            _x = (2 * j + 1 + (i&1)) * (hexWidth/2); // offset by one if odd row
             _y = (2 * i + 1) * (hexHeight/2);
 
+
+            // Draw hexagon face
             hex = new Kinetic.RegularPolygon({
-               x: _x, // offset by one if odd row
+               x: _x,
                y: _y,
                sides: 6,
                radius: hexRadius,
                fill: 'green',
-            });       
-            hexLayer.add(hex);
+            });
+
+            gridObject.face = hex;
+            this.hexLayer.add(hex);
 
             var text = new Kinetic.Text({
                x: _x,
@@ -393,22 +399,23 @@ Board.prototype = {
                fontFamily: 'Calibri',
                fill: 'black',
             });
-            hexLayer.add(text);
+            this.hexLayer.add(text);
 
+            // Drawing hexagon edges (N, W, S)
             x_offset = hexRadius * Math.cos(30 * Math.PI / 180);
             y_offset = hexRadius * 0.5;
 
-            vertices = [
+            edge_vertices = [
                [_x, _y - hexRadius],
                [_x - x_offset, _y - y_offset],
                [_x - x_offset, _y + y_offset],
                [_x, _y + hexRadius]
             ];
-            for(k = 0; k < vertices.length - 1; k++) {
 
-               var pointsToDraw = [vertices[k], vertices[k+1]];
+            for(k = 0; k < edge_vertices.length - 1; k++) {
+               edge = [edge_vertices[k], edge_vertices[k+1]];
                line = new Kinetic.Line({
-                  points: pointsToDraw,
+                  points: edge,
                   stroke: 'black',
                   strokeWidth: hexEdgeThickness,
                   drawHitFunc: function (context) {
@@ -426,21 +433,24 @@ Board.prototype = {
                      context.closePath();
                      context.fillStrokeShape(this);
                   },
-                  coords: [j, i, this.edgeLabels[k]],
+                  coords: [j, i, Globals.edgeLabels[k]],
                });
+
+               // Edge hover interactions
                line.on('mouseover', function () {
                   this.setStrokeWidth(hexEdgeThickness*5);
-                  edgeLayer.draw();
+                  gb.edgeLayer.draw();
                });
 
                line.on('mouseleave', function () {
                   this.setStrokeWidth(hexEdgeThickness);
-                  edgeLayer.draw();
+                  gb.edgeLayer.draw();
                })
-               edgeLayer.add(line);
+               gridObject.edges.push(line);
+               this.edgeLayer.add(line);
             }
 
-            var circle = new Kinetic.Circle({
+            circle = new Kinetic.Circle({
                x: _x,
                y: _y - hexRadius,
                radius: hexVertexRadius,
@@ -448,62 +458,68 @@ Board.prototype = {
                stroke: 'black',
                strokeWidth: 2,
                
-               coords: [j, i, this.vertexLabels[0]],
+               coords: [j, i, Globals.vertexLabels[0]],
             });
 
             circle.on('mouseover', function () {
                this.setRadius(hexVertexRadius*2);
-               vertexLayer.draw();
+               gb.vertexLayer.draw();
             });
 
             circle.on('mouseleave', function () {
                this.setRadius(hexVertexRadius);
-               vertexLayer.draw();
+               gb.vertexLayer.draw();
             });
 
-            vertexLayer.add(circle);
+            gridObject.vertices.push(circle);
+            this.vertexLayer.add(circle);
+
             circle = circle.clone();
             circle.setAttr('y', _y + hexRadius);
-            circle.setAttr('coords', [j, i, this.vertexLabels[1]]);
+            circle.setAttr('coords', [j, i, Globals.vertexLabels[1]]);
 
-            vertexLayer.add(circle);
-            // END LOOP OVER GRID
+            gridObject.vertices.push(circle);
+            this.vertexLayer.add(circle);
+
+            row.push(gridObject);
          }
+         
+         this.grid.push(row);
       }
+      // END LOOP OVER GRID
 
 
-      var logic = this;
-      edgeLayer.on('click', function (evt) {
-         var line = evt.targetNode;
-         var edge = line.getAttr('coords');
+      // var logic = this;
+      // edgeLayer.on('click', function (evt) {
+      //    var line = evt.targetNode;
+      //    var edge = line.getAttr('coords');
 
-         if((evt.which == 1 && logic.canBuild('road', edge)) || evt.which == 2) {
-            logic.state.roads[logic.state.currentPlayer].push(edge);
-            line.setStroke('red');
-            edgeLayer.draw();
-         }
-      });
+      //    if((evt.which == 1 && logic.canBuild('road', edge)) || evt.which == 2) {
+      //       logic.state.roads[logic.state.currentPlayer].push(edge);
+      //       line.setStroke('red');
+      //       edgeLayer.draw();
+      //    }
+      // });
 
-      vertexLayer.on('click', function (evt) {
-         console.log(evt.targetNode);
-         var circle = evt.targetNode;
-         var vertex = circle.getAttr('coords');
-         if((evt.which == 1 && logic.canBuild('settlement', vertex)) || evt.which == 2) {
-            logic.state.settlements[logic.state.currentPlayer].push(vertex);
-            circle.setFill('red');
-            vertexLayer.draw();
-         }
-      })
+      // vertexLayer.on('click', function (evt) {
+      //    console.log(evt.targetNode);
+      //    var circle = evt.targetNode;
+      //    var vertex = circle.getAttr('coords');
+      //    if((evt.which == 1 && logic.canBuild('settlement', vertex)) || evt.which == 2) {
+      //       logic.state.settlements[logic.state.currentPlayer].push(vertex);
+      //       circle.setFill('red');
+      //       vertexLayer.draw();
+      //    }
+      // });
 
-      stage.add(hexLayer);
-      stage.add(edgeLayer);
-      stage.add(vertexLayer);
-   }
+      this.stage.add(this.hexLayer);
+      this.stage.add(this.edgeLayer);
+      this.stage.add(this.vertexLayer);
+   },
 };
 
 
 var b;
 $(function () {
-  b = new Board(6,6);
-  b.draw(); 
+  b = new GraphicalBoard(6,6);
 });
