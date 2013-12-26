@@ -27,22 +27,22 @@ var Board = function (_width, _height) {
 
    this.state = {
       settlements : [
-         0 : [],
-         1 : [],
-         2 : [],
-         3 : []
+         [],
+         [],
+         [],
+         []
       ],
       roads : [
-         0 : [],
-         1 : [],
-         2 : [],
-         3 : []
+         [],
+         [],
+         [],
+         []
       ],
       hands : [
-         0 : [],
-         1 : [],
-         2 : [],
-         3 : []
+         [],
+         [],
+         [],
+         []
       ],
       baron : null,
       currentPlayer : 0,
@@ -105,7 +105,7 @@ Board.prototype = {
 // based on those presented in http://www-cs-students.stanford.edu/~amitp/game-programming/grids/
    neighbors : function (face) {
       var x = face.x, y = face.y;
-      if(y % 2) {
+      if(y % 2 == 0) {
          return [
             [x, y+1],
             [x, y-1],
@@ -129,7 +129,7 @@ Board.prototype = {
 
    borders : function (face) {
       var x = face.x, y = face.y;
-      if(y % 2) {
+      if(y % 2 == 0) {
          return [
             [x, y, 'N'],
             [x, y, 'W'],
@@ -153,7 +153,7 @@ Board.prototype = {
 
    corners : function (face) {
       var x = face.x, y = face.y;
-      if(y % 2) {
+      if(y % 2 == 0) {
          return [
             [x, y, 'N'],
             [x, y, 'S'],
@@ -178,19 +178,19 @@ Board.prototype = {
    endpoints : function (edge) {
       var x = edge.x, y = edge.y, label = edge.label;
       if(label == 'N') {
-         if(y % 2) 
+         if(y % 2 == 0) 
             return [[x, y, 'N'], [x-1, y-1, 'S']];
          else
             return [[x, y, 'N'], [x, y-1, 'S']];
       }
       else if(label == 'W') {
-         if(y % 2) 
+         if(y % 2 == 0) 
             return [[x-1, y+1, 'N'], [x-1, y-1, 'S']];
          else
             return [[x, y+1, 'N'], [x, y-1, 'S']];
       }
       else if(label == 'S') {
-         if(y % 2) 
+         if(y % 2 == 0) 
             return [[x, y, 'S'], [x-1, y+1, 'N']];
          else
             return [[x, y, 'S'], [x, y+1, 'N']];
@@ -202,13 +202,13 @@ Board.prototype = {
    touches : function (vertex) {
       var x = vertex.x, y = vertex.y, label = vertex.label;
       if(label == 'N') {
-         if(y % 2)
+         if(y % 2 == 0)
             return [[x, y], [x-1, y-1], [x, y-1]];
          else
             return [[x, y], [x, y-1], [x+1, y-1]];
       }
       else if(label == 'S') {
-         if(y % 2)
+         if(y % 2 == 0)
             return [[x, y], [x-1, y+1], [x, y+1]];
          else
             return [[x, y], [x, y+1], [x+1, y+1]];
@@ -220,7 +220,7 @@ Board.prototype = {
    protrudes : function (vertex) {
       var x = vertex.x, y = vertex.y, label = vertex.label;
       if(label == 'N') {
-         if(y % 2) {
+         if(y % 2 == 0) {
             return [
                [x, y, 'N'],
                [x, y-1, 'W'],
@@ -236,7 +236,7 @@ Board.prototype = {
          }
       }
       else if(label == 'S') {
-         if(y % 2) {
+         if(y % 2 == 0) {
             return [
                [x, y, 'S'],
                [x, y+1, 'W'],
@@ -255,25 +255,18 @@ Board.prototype = {
 
 // game-logic
 
-   canBuild : function (type, data=null) {
+   canBuild : function (build, data) {
       if(data == null)
          return false;
-      var intersect = function (a, b) {
-         var t;
-         if(b.length > a.length) { t = b; b = a; a = t; }   // iterate over shorter array
-         return a.filter(function (el) {
-            return b.indexOf(el) !== -1);
-         });
-      };
 
-      if(type == 'road') {
-         var state = this.state;
-         var availableEndPts = $.map(state.roads[state.currentPlayer], function (edge, idx) {
-            this.endpoints(val);
-         });
+      if(build == 'road') {
+         var logic = this;
+         var state = logic.state;
+         var availableEndPts = ($.map(state.roads[state.currentPlayer], function (edge, idx) {
+            return logic.endpoints(edge);
+         })).toString();
          var roadEndPts = this.endpoints(data);
-
-         if(intersect(availableEndPts, roadEndPts))
+         if(availableEndPts.indexOf(roadEndPts[0].toString()) > -1 | availableEndPts.indexOf(roadEndPts[1].toString()) > -1)
             return true;
          else
             return false;
@@ -318,6 +311,16 @@ Board.prototype = {
             });       
             layer.add(hex);
 
+            var text = new Kinetic.Text({
+               x: _x,
+               y: _y,
+               text: j + ', ' + i,
+               fontSize: 12,
+               fontFamily: 'Calibri',
+               fill: 'black',
+            });
+            layer.add(text);
+
             x_offset = hexRadius * Math.cos(30 * Math.PI / 180);
             y_offset = hexRadius * 0.5;
 
@@ -359,7 +362,7 @@ Board.prototype = {
                      context.closePath();
                      context.fillStrokeShape(this);
                   },
-                  coords: {x: j, y: i, this.edgeLabels[k]},
+                  coords: {x: j, y: i, label: this.edgeLabels[k]},
                });
                line.on('mouseover', function () {
                   this.setStrokeWidth(hexEdgeThickness*5);
@@ -384,8 +387,9 @@ Board.prototype = {
          if(evt.targetNode instanceof Kinetic.Line) {
             var line = evt.targetNode;
             var edge = line.getAttr('coords');
-            if((e.which == 1 && logic.canBuild('road', edge)) || e.which == 3) {
-               logic.state.roads[currentPlayer].push(edge);
+
+            if((evt.which == 1 && logic.canBuild('road', edge)) || evt.which == 2) {
+               logic.state.roads[logic.state.currentPlayer].push(edge);
                line.setStroke('red');
                this.draw();
             }
@@ -398,8 +402,8 @@ Board.prototype = {
 };
 
 
-
+var b;
 $(function () {
-  var b = new Board(6,6);
+  b = new Board(6,6);
   b.draw(); 
 });
