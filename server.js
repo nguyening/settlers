@@ -368,8 +368,7 @@ var LogicalBoard = function (_width, _height) {
 	},
 };
 
-var gridWidth = 6, gridHeight = 6;
-var lb = new LogicalBoard(gridWidth, gridHeight);
+var lb = new LogicalBoard(Globals.gridWidth, Globals.gridHeight);
 
 io.sockets.on('connection', function (socket) {
 	socket.on('disconnect', function () {
@@ -390,8 +389,8 @@ io.sockets.on('connection', function (socket) {
 
 		// console.log(lb.state.players);
 		socket.emit('state', {
-			gW: gridWidth,
-			gH: gridHeight,
+			gW: lb.width,
+			gH: lb.height,
 			state: lb.state,
 			sessid: socket.id,
 		});

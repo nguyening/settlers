@@ -5,6 +5,8 @@
    offset coordinates
 */
 var Globals = {
+    gridWidth: 6,
+    gridHeight: 7,  
    terrains : [1,2,3,4,5],
    edgeLabels : ['N', 'W', 'S'],
    vertexLabels : ['N', 'S'],
@@ -19,6 +21,8 @@ var Globals = {
 	},
 };
 
+exports.gridWidth = Globals.gridWidth;
+exports.gridHeight = Globals.gridHeight;
 exports.terrains = Globals.terrains;
 exports.edgeLabels = Globals.edgeLabels;
 exports.vertexLabels = Globals.vertexLabels;

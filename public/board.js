@@ -73,6 +73,10 @@ GraphicalBoard.prototype = {
       for(i = 0; i < this.gridHeight; i++) {
          row = [];
          for(j = 0; j < this.gridWidth; j++) {
+            color = 'green';
+            if(this.isUnusedFace([j, i]))
+                color = 'blue';
+
             gridObject = {
                face : null,
                edges : [],
@@ -88,7 +92,7 @@ GraphicalBoard.prototype = {
                y: _y,
                sides: 6,
                radius: hexRadius,
-               fill: 'green',
+               fill: color,
             });
 
             gridObject.face = hex;
@@ -118,6 +122,8 @@ GraphicalBoard.prototype = {
             for(k = 0; k < edge_vertices.length - 1; k++) {
                edge = [edge_vertices[k], edge_vertices[k+1]];
                coords = [j, i, Globals.edgeLabels[k]];
+               if(this.isUnusedEdge(coords))
+                  continue;
 
                color = undefined;
                for(l = 0; l < Globals.playerData.length; l++) {
@@ -170,6 +176,8 @@ GraphicalBoard.prototype = {
             for(k = 0; k < vertices.length; k++) {
                vertex = vertices[k];
                coords = [j, i, Globals.vertexLabels[k]];
+                if(this.isUnusedVertex(coords))
+                    continue;
 
                color = undefined;
                for(l = 0; l < Globals.playerData.length; l++) {
@@ -212,6 +220,38 @@ GraphicalBoard.prototype = {
 
       this.stage.draw();
    },
+
+    isUnusedFace : function (coords) {
+        var x = coords[0], y = coords[1];
+        return  y == 0 ||                                                                           // top row
+                y == this.gridHeight - 1 ||                                                         // bot row
+                (y % 2 == 0 && (x == 0 || x == this.gridWidth -1)) ||                               // even row borders
+                (y % 2 == 1 && x == this.gridWidth - 1) ||                                          // odd row borders
+                ((y == 1 || i == this.gridHeight - 2) && (x == 0 || x == this.gridWidth -2));       // padding for 34543
+    },
+
+    isUnusedEdge : function (coords) {
+        var x = coords[0], y = coords[1], label = coords[2];
+        return  (label == 'S' && ((x == 1 && y == 0) || (x == 4 && y == this.gridHeight - 2))) ||   // fudge
+                (label == 'N' && ((x == 4 && y == 1) || (x == 1 && y == this.gridHeight - 1))) ||
+                (y == 0 && label != 'S') ||                                                         // top row
+                (y == this.gridHeight -1 && label != 'N') ||                                        // bot row
+                (x == 0 && y != Math.floor(this.gridHeight/2)) ||                                   // left col
+                (x == this.gridWidth -1 && (y > this.gridHeight/2 + 1 || y < this.gridHeight/2 - 2)) || // right col
+                (x == this.gridWidth -1 && y < this.gridHeight/2 && label == 'N') ||                // NE diag
+                (x == this.gridWidth -1 && y > this.gridHeight/2 - 1 && label == 'S');              // SE diag
+    },
+
+    isUnusedVertex : function (coords) {
+        var x = coords[0], y = coords[1], label = coords[2];
+        return  (x == 4 && (y == 1 && label == 'N' || y == 5 && label == 'S')) ||                                                   // fudge
+                (y == 0 && label == 'N') ||                                                         // top row
+                (y == this.gridHeight - 1 && label == 'S') ||                                       // bottom row
+                ((x == 0 || x == this.gridWidth - 1) && (y == 0 || y == this.gridHeight -1)) ||     // corners
+                (x == this.gridWidth - 1 && y % 2 == 1) ||                                          // far-right
+                (y > this.gridHeight/2 && (x == 0 || x > this.gridWidth - 2) && label == 'S') ||    // bottom corners diag
+                (y < this.gridHeight/2 - 1 && (x == 0 || x > this.gridWidth - 2) && label == 'N');      // top corners diag
+    },
 
    build : function (type, tN, override) {
       socket.emit('buildRequest', {
@@ -265,7 +305,7 @@ GraphicalBoard.prototype = {
 socket.on('state', function (data) {
     gb = new GraphicalBoard(data.gW, data.gH, data.state);
     gb.updatePlayers();
-    console.log(data.sessid);
+    $('#sessid').text(data.sessid);
 });
 
 socket.on('buildAccept', function (data) {   
