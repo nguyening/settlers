@@ -1,7 +1,7 @@
 var socket = io.connect();
 var gb;
 
-var GraphicalBoard = function (_width, _height) {
+var GraphicalBoard = function (_width, _height, state) {
    this.grid = [];
 
    this.gridWidth = _width;
@@ -53,14 +53,14 @@ var GraphicalBoard = function (_width, _height) {
    this.stage.add(this.hexLayer);
    this.stage.add(this.edgeLayer);
    this.stage.add(this.vertexLayer);   
-   this.init.apply(this);
+   this.init.apply(this, [state || Globals.defaultState]);
 };
 
 GraphicalBoard.prototype = {
-   init : function () {
+   init : function (state) {
       var gridObject;
-      var hex, line, circle, edge_vertices, edge;
-      var _x, _y, x_offset, y_offset;
+      var hex, line, circle, edge_vertices, edge, vertices, vertex;
+      var _x, _y, x_offset, y_offset, coords;
 
       var gb = this;
       var hexRadius = this.hexRadius;
@@ -68,7 +68,7 @@ GraphicalBoard.prototype = {
       var hexHeight = this.hexHeight;
       var hexEdgeThickness = this.hexEdgeThickness;
       var hexVertexRadius = this.hexVertexRadius;
-      var row;
+      var row, color;
 
       for(i = 0; i < this.gridHeight; i++) {
          row = [];
@@ -117,9 +117,20 @@ GraphicalBoard.prototype = {
 
             for(k = 0; k < edge_vertices.length - 1; k++) {
                edge = [edge_vertices[k], edge_vertices[k+1]];
+               coords = [j, i, Globals.edgeLabels[k]];
+
+               color = undefined;
+               for(l = 0; l < Globals.players.length; l++) {
+                  if(state.roads[l].toString().indexOf(coords.toString()) != -1) {
+                     color = Globals.players[l][0];
+                     break;
+                  }
+               }
+               color = color || 'black';
+
                line = new Kinetic.Line({
                   points: edge,
-                  stroke: 'black',
+                  stroke: color,
                   strokeWidth: hexEdgeThickness,
                   drawHitFunc: function (context) {
                      // kineticjs doesn't like lines for hit functions?
@@ -136,7 +147,7 @@ GraphicalBoard.prototype = {
                      context.closePath();
                      context.fillStrokeShape(this);
                   },
-                  coords: [j, i, Globals.edgeLabels[k]],
+                  'coords': coords,
                });
 
                // Edge hover interactions
@@ -153,36 +164,45 @@ GraphicalBoard.prototype = {
                this.edgeLayer.add(line);
             }
 
-            circle = new Kinetic.Circle({
-               x: _x,
-               y: _y - hexRadius,
-               radius: hexVertexRadius,
-               fill: 'green',
-               stroke: 'black',
-               strokeWidth: 2,
-               
-               coords: [j, i, Globals.vertexLabels[0]],
-            });
+            // Draw hexagon vertices (N, S)
+            vertices = [edge_vertices[0], edge_vertices[3]];
 
-            circle.on('mouseover', function () {
-               this.setRadius(hexVertexRadius*2);
-               gb.vertexLayer.draw();
-            });
+            for(k = 0; k < vertices.length; k++) {
+               vertex = vertices[k];
+               coords = [j, i, Globals.vertexLabels[k]];
 
-            circle.on('mouseleave', function () {
-               this.setRadius(hexVertexRadius);
-               gb.vertexLayer.draw();
-            });
+               color = undefined;
+               for(l = 0; l < Globals.players.length; l++) {
+                  if(state.settlements[l].toString().indexOf(coords.toString()) != -1) {
+                     color = Globals.players[l][0];
+                     break;
+                  }
+               }
+               color = color || 'green';
 
-            gridObject.vertices.push(circle);
-            this.vertexLayer.add(circle);
+               circle = new Kinetic.Circle({
+                  x: vertex[0],
+                  y: vertex[1],
+                  radius: hexVertexRadius,
+                  fill: color,
+                  stroke: 'black',
+                  strokeWidth: 2,
+                  'coords': coords,
+               });
 
-            circle = circle.clone();
-            circle.setAttr('y', _y + hexRadius);
-            circle.setAttr('coords', [j, i, Globals.vertexLabels[1]]);
+               circle.on('mouseover', function () {
+                  this.setRadius(hexVertexRadius*2);
+                  gb.vertexLayer.draw();
+               });
 
-            gridObject.vertices.push(circle);
-            this.vertexLayer.add(circle);
+               circle.on('mouseleave', function () {
+                  this.setRadius(hexVertexRadius);
+                  gb.vertexLayer.draw();
+               });
+
+               gridObject.vertices.push(circle);
+               this.vertexLayer.add(circle);
+            }
 
             row.push(gridObject);
          }
@@ -194,7 +214,6 @@ GraphicalBoard.prototype = {
    },
 
    build : function (type, tN, override) {
-      console.log(override);
       socket.emit('build', {
          'type': type,
          coords: tN.getAttr('coords'),
@@ -230,7 +249,7 @@ GraphicalBoard.prototype = {
 };
 
 socket.on('acceptConnection', function (data) {
-   gb = new GraphicalBoard(data.gW,data.gH);
+   gb = new GraphicalBoard(data.gW, data.gH, data.state);
 });
 
 socket.on('buildAccept', function (data) {   

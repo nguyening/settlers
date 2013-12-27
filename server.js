@@ -26,13 +26,7 @@ var LogicalBoard = function (_width, _height) {
 	this.width = _width;
 	this.height = _height;
 
-	this.state = {
-	  settlements : [[],[],[],[]],
-	  roads : [[],[],[],[]],
-	  hands : [[],[],[],[]],
-	  baron : null,
-	  currentPlayer : 0,
-	};
+	this.state = Globals.defaultState;
 
 
 	this.Hex = function (_resource, _roll, _x, _y) {
@@ -296,7 +290,7 @@ var LogicalBoard = function (_width, _height) {
 	     a_vertices = a.toString();
 	     for(i = 0; i < b.length; i++) {
 	        b_vertex = b[i].toString();
-	        if(a_vertices.indexOf(b_vertex) > -1)
+	        if(a_vertices.indexOf(b_vertex) != -1)
 	           return true;
 	     }
 	     return false;
