@@ -246,11 +246,22 @@ GraphicalBoard.prototype = {
          }
       }
    },
+
+   //lobby-drawing
+    updatePlayers : function function_name (argument) {
+        var players = $('#players');
+        console.log(this);
+        for(var key in this.state.players) {
+            players.find('#p'+key)
+                .text(this.state.players[key]);
+        }
+   },
 };
 
 socket.on('state', function (data) {
-   gb = new GraphicalBoard(data.gW, data.gH, data.state);
-   console.log(data.sessid);
+    gb = new GraphicalBoard(data.gW, data.gH, data.state);
+    gb.updatePlayers();
+    console.log(data.sessid);
 });
 
 socket.on('buildAccept', function (data) {   
@@ -267,13 +278,13 @@ socket.on('nextTurn', function (data) {
 });
 
 socket.on('players', function (data) {
-	gb.state.players = data.players;
-	$('#players').text(JSON.stringify(gb.state.players));
+    gb.state.players = data.players;
+    gb.updatePlayers();
 });
 
 $(function () {
-	socket.emit('grabState', {});
-   $('#nextTurn').click(function (evt) {
-      socket.emit('nextTurn', {});
+    socket.emit('grabState', {});
+   $('#endTurn').click(function (evt) {
+      socket.emit('endTurn', {});
    });
 });

@@ -279,6 +279,7 @@ var LogicalBoard = function (_width, _height) {
 	  var logic = this;
 	  var state = logic.state;
 
+	  // check if two arrays have intersecting coordinates
 	  var intersectEndPts = function (a, b) {
 	     var t;
 	     if(a.length < b.length) {
@@ -295,13 +296,32 @@ var LogicalBoard = function (_width, _height) {
 	     }
 	     return false;
 	  };
+
+	  // checks if array of objects a contains object b
+	  var objArrContains = function (a, b) {
+	  	for(i = 0; i < a.length; i++) {
+	  		console.log(a[i]);
+	  		console.log(b);
+	  		if(a[i].toString() == b.toString())
+	  			return true;
+	  	}
+	  	return false;
+	  }
 	  
 	  if(build == 'road') {
+	  	 var opponentRds = [];
+	  	 for(i = 0; i < Globals.playerData.length; i++) {
+	  	 	if(i != state.currentPlayer)
+	  	 		opponentRds = opponentRds.concat(state.roads[i]);
+	  	 }
+
 	     var availableEndPts = [].concat.apply([], state.roads[state.currentPlayer].map(function (edge, idx) {
 	        return logic.endpoints(edge);
 	     }));
 	     var roadEndPts = this.endpoints(data);
-	     return intersectEndPts(availableEndPts, roadEndPts);
+	     console.log(objArrContains(opponentRds, data));
+
+	     return (intersectEndPts(availableEndPts, roadEndPts) && !objArrContains(opponentRds, data));
 	  }
 	  else if(build == 'settlement') {
 	     var availableEndPts = state.roads[state.currentPlayer].map(function (edge, idx) {
@@ -336,7 +356,6 @@ var LogicalBoard = function (_width, _height) {
 				break;
 			}
 		}
-		this.updatePlayers();
 	},
 
 	removePlayer : function (sessId) {
@@ -346,13 +365,6 @@ var LogicalBoard = function (_width, _height) {
 				break;
 			}
 		}
-		this.updatePlayers();
-	},
-
-	updatePlayers : function () {
-		io.sockets.emit('players', {
-			players: lb.state.players
-		});
 	},
 };
 
@@ -362,14 +374,21 @@ var lb = new LogicalBoard(gridWidth, gridHeight);
 io.sockets.on('connection', function (socket) {
 	socket.on('disconnect', function () {
 		lb.removePlayer(socket.id);
-		console.log(lb.state.players);
+		// console.log(lb.state.players);
+		socket.broadcast.emit('players', {
+			players: lb.state.players
+		});
 	});
 
 	socket.on('grabState', function (data) {
-		if(!lb.checkFullLobby())
+		if(!lb.checkFullLobby()) {
 			lb.addPlayer(socket.id);
+			socket.broadcast.emit('players', {
+				players: lb.state.players
+			});
+		}
 
-		console.log(lb.state.players);
+		// console.log(lb.state.players);
 		socket.emit('state', {
 			gW: gridWidth,
 			gH: gridHeight,
@@ -379,7 +398,7 @@ io.sockets.on('connection', function (socket) {
 	});
 
 	socket.on('buildRequest', function (data) {
-		console.log(lb.state.players[lb.state.currentPlayer]);
+		// console.log(lb.state.players[lb.state.currentPlayer]);
 		// make sure request is during this user's turn
 		if(socket.id != lb.state.players[lb.state.currentPlayer])
 			return;
@@ -400,7 +419,10 @@ io.sockets.on('connection', function (socket) {
 		}
 	});
 
-	socket.on('nextTurn', function (data) {
+	socket.on('endTurn', function (data) {
+		// console.log(socket.id);
+		if(socket.id != lb.state.players[lb.state.currentPlayer])
+			return;
 		lb.state.currentPlayer = ++lb.state.currentPlayer % (Globals.playerData.length - 1);
 		io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer});
 	});
