@@ -1,13 +1,17 @@
 var socket = io.connect();
 var gb;
 
-var GraphicalBoard = function (_width, _height, _state) {
+var GraphicalBoard = function (_width, _height, _state, sessid) {
+    //czech http://stackoverflow.com/a/18949651/1487756
+    this.player_num = Array.apply(null, {length : Globals.playerData.length})
+                .map(function(el,i) {return _state.players[i];}).indexOf(sessid);
+
     this.grid = [];
-    this.state = _state || Globals.defaultState;
+    this.state = _state || Globals.defaultState.slice(0);
     this.gridWidth = _width;
     this.gridHeight = _height;
     this.canvasWidth = 500;
-    this.canvasHeight = 500;
+    this.canvasHeight = 700;
 
     this.hexRadius = 50;
     this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
@@ -16,6 +20,10 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.hexVertexRadius = 8;
     this.defaultVertexFill = 'white';
     this.defaultEdgeStroke = 'black';
+
+    this.cardWidth = 50;
+    this.cardHeight = 100;
+    this.cardBaseY = 500;
 
     this.stage = new Kinetic.Stage({
         container: 'container',
@@ -26,6 +34,7 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.hexLayer = new Kinetic.Layer();
     this.edgeLayer = new Kinetic.Layer();
     this.vertexLayer = new Kinetic.Layer();
+    this.handLayer = new Kinetic.Layer();
 
     var gb = this;
     // Click bindings
@@ -51,6 +60,7 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.stage.add(this.hexLayer);
     this.stage.add(this.edgeLayer);
     this.stage.add(this.vertexLayer);   
+    this.stage.add(this.handLayer);
     this.init.apply(this, [this.state]);
 };
 
@@ -71,9 +81,9 @@ GraphicalBoard.prototype = {
 
       var row, color, city_flag;
 
-      for(i = 0; i < this.gridHeight; i++) {
+      for(var i = 0; i < this.gridHeight; i++) {
          row = [];
-         for(j = 0; j < this.gridWidth; j++) {
+         for(var j = 0; j < this.gridWidth; j++) {
 
             gridObject = {
                face : null,
@@ -119,14 +129,14 @@ GraphicalBoard.prototype = {
                [_x, _y + hexRadius]
             ];
 
-            for(k = 0; k < edge_vertices.length - 1; k++) {
+            for(var k = 0; k < edge_vertices.length - 1; k++) {
                edge = [edge_vertices[k], edge_vertices[k+1]];
                coords = [j, i, Globals.edgeLabels[k]];
                if(Globals.isUnusedEdge(coords))
                   continue;
 
                color = undefined;
-               for(l = 0; l < Globals.playerData.length; l++) {
+               for(var l = 0; l < Globals.playerData.length; l++) {
                   if(state.roads[l].toString().indexOf(coords.toString()) != -1) {
                      color = Globals.playerData[l][0];
                      break;
@@ -175,7 +185,7 @@ GraphicalBoard.prototype = {
             // Draw hexagon vertices (N, S)
             vertices = [edge_vertices[0], edge_vertices[3]];
 
-            for(k = 0; k < vertices.length; k++) {
+            for(var k = 0; k < vertices.length; k++) {
                 city_flag = false;
                vertex = vertices[k];
                coords = [j, i, Globals.vertexLabels[k]];
@@ -183,7 +193,7 @@ GraphicalBoard.prototype = {
                     continue;
 
                color = undefined;
-               for(l = 0; l < Globals.playerData.length; l++) {
+               for(var l = 0; l < Globals.playerData.length; l++) {
                   if(state.settlements[l].toString().indexOf(coords.toString()) != -1) {
                      color = Globals.playerData[l][0];
                       if(state.cities[l].toString().indexOf(coords.toString()) != -1) {
@@ -249,21 +259,33 @@ GraphicalBoard.prototype = {
          this.grid.push(row);
       }
 
+      this.drawHand();
       this.stage.draw();
    },
 
-   build : function (type, coords, override) {
-      socket.emit('buildRequest', {
-         'type': type,
-         'coords': coords,
-         'override': override
-      });
+   drawHand : function () {
+       this.handLayer.removeChildren();
+       console.log(this.player_num);
+       var box, hand = this.state.hands[this.player_num];
+       for(var i = 0; i < hand.length; i++) {
+            box = new Kinetic.Rect({
+                x: i* this.cardWidth/2,
+                y: this.cardBaseY,
+                width: this.cardWidth,
+                height: this.cardHeight,
+                fill: Globals.terrainTypes[hand[i]],
+                stroke: 'black',
+                strokeWidth: 2,
+            });
+            this.handLayer.add(box);
+       }
+       this.handLayer.draw();
    },
 
    drawRoad : function (edge) {
       var gridObject = this.grid[edge[1]][edge[0]];
       var line;
-      for(i = 0; i < gridObject.edges.length; i++) {
+      for(var i = 0; i < gridObject.edges.length; i++) {
          line = gridObject.edges[i];
          if(line.getAttr('coords')[2] == edge[2]) {
             line.setStroke(Globals.playerData[this.state.currentPlayer][0]);
@@ -276,7 +298,7 @@ GraphicalBoard.prototype = {
    drawSettlement : function (vertex) {
       var gridObject = this.grid[vertex[1]][vertex[0]];
       var circle;
-      for(i = 0; i < gridObject.vertices.length; i++) {
+      for(var i = 0; i < gridObject.vertices.length; i++) {
          circle = gridObject.vertices[i];
          if(circle.getAttr('coords')[2] == vertex[2]) {
             circle.setFill(Globals.playerData[this.state.currentPlayer][0]);
@@ -289,7 +311,7 @@ GraphicalBoard.prototype = {
     drawCity : function (vertex) {
         var gridObject = this.grid[vertex[1]][[vertex[0]]];
         var star;
-        for(i = 0; i < gridObject.vertices.length; i++) {
+        for(var i = 0; i < gridObject.vertices.length; i++) {
             circle = gridObject.vertices[i];
             if(circle.getAttr('coords')[2] == vertex[2]) {
                 star  = new Kinetic.Star({
@@ -323,15 +345,33 @@ GraphicalBoard.prototype = {
             }
         }
    },
+
+  build : function (type, coords, override) {
+      socket.emit('buildRequest', {
+         'type': type,
+         'coords': coords,
+         'override': override
+      });
+   },
 };
 
 socket.on('state', function (data) {
     $('#sessid').text(data.sessid);
 
-    gb = new GraphicalBoard(data.gW, data.gH, data.state);
+    gb = new GraphicalBoard(data.gW, data.gH, data.state, data.sessid);
     gb.updatePlayers();
 });
 
+socket.on('players', function (data) {
+    gb.state.players = data.players;
+    gb.updatePlayers();
+});
+
+socket.on('distributeResources', function (data) {
+    // data.cardsAdded
+    gb.state.hands = data.hands;
+    gb.drawHand();
+})
 socket.on('buildAccept', function (data) {   
     if(data.type == 'road') {
         gb.drawRoad(data.coords);
@@ -349,14 +389,13 @@ socket.on('nextTurn', function (data) {
    gb.updatePlayers();
 });
 
-socket.on('players', function (data) {
-    gb.state.players = data.players;
-    gb.updatePlayers();
-});
 
 $(function () {
     socket.emit('grabState', {});
    $('#endTurn').click(function (evt) {
       socket.emit('endTurn', {});
+   });
+    $('#roll').click(function (evt) {
+      socket.emit('roll', {});
    });
 });

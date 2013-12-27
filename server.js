@@ -1,5 +1,5 @@
 // require
-var Globals = require('./globals.js');
+var Globals = require('./globals.js').Globals;
 var jade = require('jade');
 var express = require('express'), app = express();
 var http = require('http'), 
@@ -24,7 +24,7 @@ var LogicalBoard = function (_width, _height) {
 	this.width = _width;
 	this.height = _height;
 
-	this.state = Globals.defaultState;
+	this.state = JSON.parse(JSON.stringify(Globals.defaultState));	// clone object
 
 
 	this.Hex = function (_resource, _roll, _x, _y) {
@@ -47,9 +47,9 @@ LogicalBoard.prototype = {
 
 		// initialize grid with resources
 		var row, terrain, idx;
-		for(i = 0; i < height; i++) {
+		for(var i = 0; i < height; i++) {
 			row = [];
-			for(j = 0; j < width; j++) {
+			for(var j = 0; j < width; j++) {
 				if(Globals.isUnusedFace([j, i])) {
 					row.push(new this.Hex(0,0));
 				}
@@ -69,7 +69,7 @@ LogicalBoard.prototype = {
 					[2,5],[1,5],[1,4],[1,3],[2,2],[3,2],[3,3],[3,4],[2,4],[2,3]];
 		var rolls = Globals.rolls;
 		var order, hex;
-		for(i = 0; i < ordering.length; i++) {
+		for(var i = 0; i < ordering.length; i++) {
 			order = ordering[i];
 			hex = this.state.grid[order[1]][order[0]];
 			if(hex.resource != 5) {
@@ -154,18 +154,18 @@ LogicalBoard.prototype = {
 	     return [
 	        [x, y, 'N'],
 	        [x, y, 'S'],
+	        [x, y-1, 'S'],
+	        [x, y+1, 'N'],
 	        [x-1, y-1, 'S'],
 	        [x-1, y+1, 'N'],
-	        [x+1, y-1, 'S'],
-	        [x+1, y+1, 'N'],
 	     ];
 	  }
 	  else {
 	     return [
 	        [x, y, 'N'],
 	        [x, y, 'S'],
-	        [x, y-1, 'S'],
-	        [x, y+1, 'N'],
+	        [x-1, y-1, 'S'],
+	        [x-1, y+1, 'N'],
 	        [x+1, y-1, 'S'],
 	        [x+1, y+1, 'N'],
 	     ];
@@ -305,7 +305,7 @@ LogicalBoard.prototype = {
 	     }
 
 	     a_vertices = a.toString();
-	     for(i = 0; i < b.length; i++) {
+	     for(var i = 0; i < b.length; i++) {
 	        b_vertex = b[i].toString();
 	        if(a_vertices.indexOf(b_vertex) != -1)
 	           return true;
@@ -315,7 +315,7 @@ LogicalBoard.prototype = {
 
 	  // checks if array of objects a contains object b
 	  var objArrContains = function (a, b) {
-	  	for(i = 0; i < a.length; i++) {
+	  	for(var i = 0; i < a.length; i++) {
 	  		// console.log(a[i]);
 	  		// console.log(b);
 	  		if(a[i].toString() == b.toString())
@@ -326,7 +326,7 @@ LogicalBoard.prototype = {
 	  
 	  if(build == 'road') {
 	  	 var opponentRds = [];
-	  	 for(i = 0; i < Globals.playerData.length; i++) {
+	  	 for(var i = 0; i < Globals.playerData.length; i++) {
 	  	 	if(i != state.currentPlayer)
 	  	 		opponentRds = opponentRds.concat(state.roads[i]);
 	  	 }
@@ -359,6 +359,55 @@ LogicalBoard.prototype = {
 	  else
 	     return false;
 	},  
+
+	distributeResources : function (roll) {
+		var calcIntersectEndPts = function (a, b) {
+			var t, res = [];
+			if(a.length < b.length) {
+				t = a;
+				a = b;
+				b = t;
+			}
+
+			a_vertices = a.toString();
+			for(var i = 0; i < b.length; i++) {
+				b_vertex = b[i].toString();
+				if(a_vertices.indexOf(b_vertex) != -1)
+				   res.push(b[i]);
+			}
+			return res;
+		};
+
+		var resources = [];
+		for(var i = 0; i < this.height; i++) {
+			for(var j = 0; j < this.width; j++) {
+				if(this.state.grid[i][j].roll == roll) {
+					if(this.state.grid[i][j].resource != 5) 
+						resources.push([j, i, this.state.grid[i][j].resource]);
+					// else {}
+						// baron stuff here
+				}
+			}
+		}
+		
+		var resource, resourceVertices, cardsAdded = Globals.defaultState.hands.slice(0); // copy by value, JS ref trouble again!
+		var state = this.state;
+		for(var i = 0; i < resources.length; i++) {
+			resource = resources[i][2];
+			resourceVertices = this.corners([resources[i][0], resources[i][1]]);
+
+			for(var p = 0; p < Globals.playerData.length; p++) {
+				cardsAdded[p] = cardsAdded[p].concat(calcIntersectEndPts(state.settlements[p], resourceVertices)
+									.map(function () { return resource; })
+									.concat(calcIntersectEndPts(state.cities[p], resourceVertices).map(function () {return resource;})));
+			}
+		}
+		
+		for(var p = 0; p < Globals.playerData.length; p++) {
+			this.state.hands[p] = this.state.hands[p].concat(cardsAdded[p]);
+		}
+		io.sockets.emit('distributeResources', { cardsAdded : cardsAdded, hands : this.state.hands });
+	},
 
 	// lobby-logic
 	checkFullLobby : function () {
@@ -395,7 +444,6 @@ var lb = new LogicalBoard(Globals.gridWidth, Globals.gridHeight);
 io.sockets.on('connection', function (socket) {
 	socket.on('disconnect', function () {
 		lb.removePlayer(socket.id);
-		// console.log(lb.state.players);
 		socket.broadcast.emit('players', {
 			players: lb.state.players
 		});
@@ -409,7 +457,6 @@ io.sockets.on('connection', function (socket) {
 			});
 		}
 
-		// console.log(lb.state.players);
 		socket.emit('state', {
 			gW: lb.width,
 			gH: lb.height,
@@ -418,8 +465,16 @@ io.sockets.on('connection', function (socket) {
 		});
 	});
 
+	socket.on('roll', function () {
+		if(socket.id != lb.state.players[lb.state.currentPlayer])
+			return;
+		// var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
+		var dice = [3, 6];
+		io.sockets.emit('rollResult', { roll: dice[0]+dice[1] });
+		lb.distributeResources(dice[0]+dice[1]);
+	});
+
 	socket.on('buildRequest', function (data) {
-		console.log(data);
 		// make sure request is during this user's turn
 		if(socket.id != lb.state.players[lb.state.currentPlayer])
 			return;
@@ -444,7 +499,6 @@ io.sockets.on('connection', function (socket) {
 	});
 
 	socket.on('endTurn', function (data) {
-		// console.log(socket.id);
 		if(socket.id != lb.state.players[lb.state.currentPlayer])
 			return;
 		lb.state.currentPlayer = ++lb.state.currentPlayer % Globals.playerData.length;

@@ -1,22 +1,22 @@
-var Globals = {
-    gridWidth: 6,
-    gridHeight: 7,  
-    rolls : [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11],
-    terrains : [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5],
-    terrainTypes : ['brown', 'chartreuse', 'grey', 'gold', 'forestgreen', 'white'],
-    edgeLabels : ['N', 'W', 'S'],
-    vertexLabels : ['N', 'S'],
-    playerData : [['red'], ['blue'], ['yellow'], ['white']],
-    defaultState : {
-        grid : [],
-        players : {0:null, 1:null, 2:null, 3:null},
-        settlements : [[],[],[],[]],
-        cities : [[],[],[],[]],
-        roads : [[],[],[],[]],
-        hands : [[],[],[],[]],
-        baron : null,
-        currentPlayer : 0,
-    },
+var Globals = function () {};
+Globals.gridWidth = 6;
+Globals.gridHeight = 7;
+Globals.rolls = [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11];
+Globals.terrains = [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5];
+Globals.terrainTypes = ['brown', 'chartreuse', 'grey', 'gold', 'forestgreen', 'white'];
+Globals.edgeLabels = ['N', 'W', 'S'];
+Globals.vertexLabels = ['N', 'S'];
+Globals.playerData = [['red'], ['blue'], ['yellow'], ['white']];
+Globals.defaultState = {
+    phase : 'roll',
+    grid : [],
+    players : {0:null, 1:null, 2:null, 3:null},
+    settlements : [[],[],[],[]],
+    cities : [[],[],[],[]],
+    roads : [[],[],[],[]],
+    hands : [[],[],[],[]],
+    baron : null,
+    currentPlayer : 0,
 };
 
 Globals.isUnusedFace = function (coords) {
@@ -25,7 +25,7 @@ Globals.isUnusedFace = function (coords) {
             y == this.gridHeight - 1 ||                                                         // bot row
             (y % 2 == 0 && (x == 0 || x == this.gridWidth -1)) ||                               // even row borders
             (y % 2 == 1 && x == this.gridWidth - 1) ||                                          // odd row borders
-            ((y == 1 || i == this.gridHeight - 2) && (x == 0 || x == this.gridWidth -2));       // padding for 34543
+            ((y == 1 || y == this.gridHeight - 2) && (x == 0 || x == this.gridWidth -2));       // padding for 34543
 };
 
 Globals.isUnusedEdge = function (coords) {
