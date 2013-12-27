@@ -28,25 +28,16 @@ var LogicalBoard = function (_width, _height) {
 
 
 	this.Hex = function (_resource, _roll, _x, _y) {
-	  this.resource = _resource;
-	  this.roll = _roll;
+		this.resource = _resource;
+		this.roll = _roll;
 
-	  this.x = _x;
-	  this.y = _y;
+		this.x = _x;
+		this.y = _y;
+
+		this.setRoll = function (_roll) {
+			this.roll = _roll;
+		};	  
 	};
-
-	this.Hex.prototype = {
-	  getResource : function () {
-	     return this.resource;
-	  },
-	  getRoll : function() {
-	     return this.roll;
-	  },
-	  setRoll : function (_roll) {
-	  	this.roll = _roll;
-	  },
-	};
-
 	this.init.apply(this, arguments);
 };
 
@@ -54,21 +45,38 @@ LogicalBoard.prototype = {
 	init : function (width, height) {
 		var terrains = Globals.terrains;
 
+		// initialize grid with resources
 		var row, terrain, idx;
 		for(i = 0; i < height; i++) {
 			row = [];
 			for(j = 0; j < width; j++) {
-				idx = Math.floor(Math.random() * terrains.length);
-				row.push(new this.Hex(terrains[idx], j+i));
+				if(Globals.isUnusedFace([j, i])) {
+					row.push(new this.Hex(0,0));
+				}
+				else {
+					idx = Math.floor(Math.random() * terrains.length);
+					row.push(new this.Hex(terrains[idx], 7));
 
-				if(Globals.isUnusedFace([j, i]))
-					continue;
-				terrains.splice(idx, 1);
+					terrains.splice(idx, 1);
+				}
 			}
 
 			this.state.grid.push(row);
 		}
-		console.log(JSON.stringify(this.state.grid));
+		
+		// assign rolls in spiral
+		var ordering = [[0,3],[1,2],[1,1],[2,1],[3,1],[4,2],[4,3],[4,4],[3,5],
+					[2,5],[1,5],[1,4],[1,3],[2,2],[3,2],[3,3],[3,4],[2,4],[2,3]];
+		var rolls = Globals.rolls;
+		var order, hex;
+		for(i = 0; i < ordering.length; i++) {
+			order = ordering[i];
+			hex = this.state.grid[order[1]][order[0]];
+			if(hex.resource != 5) {
+				hex.setRoll(rolls[0]);
+				rolls.splice(0, 1);
+			}
+		}
 	},
 
 	getHex : function (_x, _y) {

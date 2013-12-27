@@ -100,7 +100,7 @@ GraphicalBoard.prototype = {
                 var text = new Kinetic.Text({
                    x: _x,
                    y: _y,
-                   text: j + ', ' + i,
+                   text: ''+state.grid[i][j].roll+' ('+j+', '+i+')',
                    fontSize: 12,
                    fontFamily: 'Calibri',
                    fill: 'black',
