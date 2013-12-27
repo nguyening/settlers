@@ -14,6 +14,8 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.hexHeight = this.hexRadius*1.5;
     this.hexEdgeThickness = 2;
     this.hexVertexRadius = 8;
+    this.defaultVertexFill = 'white';
+    this.defaultEdgeStroke = 'black';
 
     this.stage = new Kinetic.Stage({
         container: 'container',
@@ -30,7 +32,7 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.edgeLayer.on('click', function (evt) {
         var line = evt.targetNode;
         var edge = line.getAttr('coords');
-        if(line.getAttr('stroke') == 'black') {
+        if(line.getAttr('stroke') == gb.defaultEdgeStroke) {
             gb.build('road', edge, evt.which==2);
         }
     });
@@ -38,7 +40,7 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.vertexLayer.on('click', function (evt) {
         var circle = evt.targetNode;
         var vertex = circle.getAttr('coords');
-        if(circle.getAttr('fill') != 'green') {
+        if(circle.getAttr('fill') != gb.defaultVertexFill) {
             gb.build('city', vertex);
         }
         else {
@@ -64,6 +66,9 @@ GraphicalBoard.prototype = {
       var hexHeight = this.hexHeight;
       var hexEdgeThickness = this.hexEdgeThickness;
       var hexVertexRadius = this.hexVertexRadius;
+      var defaultVertexFill = this.defaultVertexFill;
+      var defaultEdgeStroke = this.defaultEdgeStroke;
+
       var row, color, city_flag;
 
       for(i = 0; i < this.gridHeight; i++) {
@@ -79,14 +84,14 @@ GraphicalBoard.prototype = {
             _y = (2 * i + 1) * (hexHeight/2);
 
 
-            if(!this.isUnusedFace([j, i])) {
+            if(!Globals.isUnusedFace([j, i])) {
                 // Draw hexagon face
                 hex = new Kinetic.RegularPolygon({
                    x: _x,
                    y: _y,
                    sides: 6,
                    radius: hexRadius,
-                   fill: 'green',
+                   fill: Globals.terrainTypes[state.grid[i][j].resource],
                 });
 
                 gridObject.face = hex;
@@ -117,7 +122,7 @@ GraphicalBoard.prototype = {
             for(k = 0; k < edge_vertices.length - 1; k++) {
                edge = [edge_vertices[k], edge_vertices[k+1]];
                coords = [j, i, Globals.edgeLabels[k]];
-               if(this.isUnusedEdge(coords))
+               if(Globals.isUnusedEdge(coords))
                   continue;
 
                color = undefined;
@@ -127,7 +132,7 @@ GraphicalBoard.prototype = {
                      break;
                   }
                }
-               color = color || 'black';
+               color = color || defaultEdgeStroke;
 
                line = new Kinetic.Line({
                   points: edge,
@@ -151,7 +156,7 @@ GraphicalBoard.prototype = {
                   'coords': coords,
                });
 
-               if(color == 'black') {
+               if(color == defaultEdgeStroke) {
                    // Edge hover interactions
                    line.on('mouseover', function () {
                       this.setStrokeWidth(hexEdgeThickness*5);
@@ -174,20 +179,20 @@ GraphicalBoard.prototype = {
                 city_flag = false;
                vertex = vertices[k];
                coords = [j, i, Globals.vertexLabels[k]];
-                if(this.isUnusedVertex(coords))
+                if(Globals.isUnusedVertex(coords))
                     continue;
 
                color = undefined;
                for(l = 0; l < Globals.playerData.length; l++) {
                   if(state.settlements[l].toString().indexOf(coords.toString()) != -1) {
                      color = Globals.playerData[l][0];
-                      if(state.settlements[l].toString().indexOf(coords.toString()) != -1) {
+                      if(state.cities[l].toString().indexOf(coords.toString()) != -1) {
                         city_flag = true;
                       }
                      break;
                   }
                }
-               color = color || 'green';
+               color = color || defaultVertexFill;
                if(city_flag) {
                 star  = new Kinetic.Star({
                     x: vertex[0],
@@ -209,7 +214,7 @@ GraphicalBoard.prototype = {
                       y: vertex[1],
                       radius: hexVertexRadius,
                       fill: color,
-                      opacity: (color == 'green') ? 0 : 1,
+                      opacity: (color == defaultVertexFill) ? 0 : 1,
                       'coords': coords,
                    });
 
@@ -225,7 +230,7 @@ GraphicalBoard.prototype = {
 
                    circle.on('mouseleave', function () {
                         this.setAttrs({
-                            opacity: (this.getAttr('fill') == 'green') ? 0 : 1,
+                            opacity: (this.getAttr('fill') == defaultVertexFill) ? 0 : 1,
                             radius: hexVertexRadius,
                             stroke: null,
                             strokeWidth: 0,
@@ -246,38 +251,6 @@ GraphicalBoard.prototype = {
 
       this.stage.draw();
    },
-
-    isUnusedFace : function (coords) {
-        var x = coords[0], y = coords[1];
-        return  y == 0 ||                                                                           // top row
-                y == this.gridHeight - 1 ||                                                         // bot row
-                (y % 2 == 0 && (x == 0 || x == this.gridWidth -1)) ||                               // even row borders
-                (y % 2 == 1 && x == this.gridWidth - 1) ||                                          // odd row borders
-                ((y == 1 || i == this.gridHeight - 2) && (x == 0 || x == this.gridWidth -2));       // padding for 34543
-    },
-
-    isUnusedEdge : function (coords) {
-        var x = coords[0], y = coords[1], label = coords[2];
-        return  (label == 'S' && ((x == 1 && y == 0) || (x == 4 && y == this.gridHeight - 2))) ||   // fudge
-                (label == 'N' && ((x == 4 && y == 1) || (x == 1 && y == this.gridHeight - 1))) ||
-                (y == 0 && label != 'S') ||                                                         // top row
-                (y == this.gridHeight -1 && label != 'N') ||                                        // bot row
-                (x == 0 && y != Math.floor(this.gridHeight/2)) ||                                   // left col
-                (x == this.gridWidth -1 && (y > this.gridHeight/2 + 1 || y < this.gridHeight/2 - 2)) || // right col
-                (x == this.gridWidth -1 && y < this.gridHeight/2 && label == 'N') ||                // NE diag
-                (x == this.gridWidth -1 && y > this.gridHeight/2 - 1 && label == 'S');              // SE diag
-    },
-
-    isUnusedVertex : function (coords) {
-        var x = coords[0], y = coords[1], label = coords[2];
-        return  (x == 4 && (y == 1 && label == 'N' || y == 5 && label == 'S')) ||                                                   // fudge
-                (y == 0 && label == 'N') ||                                                         // top row
-                (y == this.gridHeight - 1 && label == 'S') ||                                       // bottom row
-                ((x == 0 || x == this.gridWidth - 1) && (y == 0 || y == this.gridHeight -1)) ||     // corners
-                (x == this.gridWidth - 1 && y % 2 == 1) ||                                          // far-right
-                (y > this.gridHeight/2 && (x == 0 || x > this.gridWidth - 2) && label == 'S') ||    // bottom corners diag
-                (y < this.gridHeight/2 - 1 && (x == 0 || x > this.gridWidth - 2) && label == 'N');      // top corners diag
-    },
 
    build : function (type, coords, override) {
       socket.emit('buildRequest', {

@@ -21,8 +21,6 @@ server.listen(process.env.PORT || 3000);	// heroku dynamically assigns port
 console.log('Express server started on port %s', server.address().port);
 
 var LogicalBoard = function (_width, _height) {   
-	this.grid = [];
-
 	this.width = _width;
 	this.height = _height;
 
@@ -43,28 +41,38 @@ var LogicalBoard = function (_width, _height) {
 	  },
 	  getRoll : function() {
 	     return this.roll;
-	  }
+	  },
+	  setRoll : function (_roll) {
+	  	this.roll = _roll;
+	  },
 	};
 
 	this.init.apply(this, arguments);
-	};
+};
 
-	LogicalBoard.prototype = {
+LogicalBoard.prototype = {
 	init : function (width, height) {
-	  var row, terrain;
-	  for(i = 0; i < height; i++) {
-	     row = [];
-	     for(j = 0; j < width; j++) {
-	        terrain = Math.floor(Math.random() * Globals.terrains.length);
-	        row.push(new this.Hex(terrain, j+i));
-	     }
+		var terrains = Globals.terrains;
 
-	     this.grid.push(row);
-	  }      
+		var row, terrain, idx;
+		for(i = 0; i < height; i++) {
+			row = [];
+			for(j = 0; j < width; j++) {
+				idx = Math.floor(Math.random() * terrains.length);
+				row.push(new this.Hex(terrains[idx], j+i));
+
+				if(Globals.isUnusedFace([j, i]))
+					continue;
+				terrains.splice(idx, 1);
+			}
+
+			this.state.grid.push(row);
+		}
+		console.log(JSON.stringify(this.state.grid));
 	},
 
 	getHex : function (_x, _y) {
-	  return this.grid[_y][_x];
+	  return this.state.grid[_y][_x];
 	},
 
 	getHexEdges : function (_x, _y) {
@@ -403,7 +411,7 @@ io.sockets.on('connection', function (socket) {
 	});
 
 	socket.on('buildRequest', function (data) {
-		// console.log(lb.state.players[lb.state.currentPlayer]);
+		console.log(data);
 		// make sure request is during this user's turn
 		if(socket.id != lb.state.players[lb.state.currentPlayer])
 			return;
