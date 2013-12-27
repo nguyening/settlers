@@ -1,15 +1,15 @@
 var socket = io.connect();
 var gb;
 
-var GraphicalBoard = function (_width, _height, state) {
+var GraphicalBoard = function (_width, _height, _state) {
    this.grid = [];
-
+   this.state = _state || Globals.defaultState;
    this.gridWidth = _width;
    this.gridHeight = _height;
    this.canvasWidth = 1000;
-   this.canvasHeight = 1000;
-   this.canvasOffsetX = -100;
-   this.canvasOffsetY = -100;
+   this.canvasHeight = 600;
+   this.canvasOffsetX = -50;
+   this.canvasOffsetY = -50;
 
    this.hexRadius = 50;
    this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
@@ -53,7 +53,7 @@ var GraphicalBoard = function (_width, _height, state) {
    this.stage.add(this.hexLayer);
    this.stage.add(this.edgeLayer);
    this.stage.add(this.vertexLayer);   
-   this.init.apply(this, [state || Globals.defaultState]);
+   this.init.apply(this, [this.state]);
 };
 
 GraphicalBoard.prototype = {
@@ -227,7 +227,7 @@ GraphicalBoard.prototype = {
       for(i = 0; i < gridObject.edges.length; i++) {
          line = gridObject.edges[i];
          if(line.getAttr('coords')[2] == edge[2]) {
-            line.setStroke('red');
+            line.setStroke(Globals.players[this.state.currentPlayer][0]);
             this.edgeLayer.draw();
             break;
          }
@@ -240,7 +240,7 @@ GraphicalBoard.prototype = {
       for(i = 0; i < gridObject.vertices.length; i++) {
          circle = gridObject.vertices[i];
          if(circle.getAttr('coords')[2] == vertex[2]) {
-            circle.setFill('red');
+            circle.setFill(Globals.players[this.state.currentPlayer][0]);
             this.vertexLayer.draw();
             break;
          }
@@ -261,6 +261,14 @@ socket.on('buildAccept', function (data) {
    };
 });
 
+socket.on('nextTurn', function (data) {
+   gb.state.currentPlayer = data.currentPlayer;
+});
+
 $(function () {
    socket.emit('newConnection', {});
+
+   $('#nextTurn').click(function (evt) {
+      socket.emit('nextTurn', {});
+   });
 });

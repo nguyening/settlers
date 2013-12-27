@@ -21,4 +21,5 @@ var Globals = {
 exports.terrains = Globals.terrains;
 exports.edgeLabels = Globals.edgeLabels;
 exports.vertexLabels = Globals.vertexLabels;
+exports.players = Globals.players;
 exports.defaultState = Globals.defaultState;

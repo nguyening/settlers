@@ -346,6 +346,11 @@ io.sockets.on('connection', function (socket) {
 				coords: data.coords
 			});
 		}
-	})
+	});
+
+	socket.on('nextTurn', function (data) {
+		lb.state.currentPlayer = ++lb.state.currentPlayer % (Globals.players.length - 1);
+		io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer});
+	});
 });
 
