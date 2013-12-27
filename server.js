@@ -360,53 +360,60 @@ LogicalBoard.prototype = {
 	     return false;
 	},  
 
-	distributeResources : function (roll) {
-		var calcIntersectEndPts = function (a, b) {
-			var t, res = [];
-			if(a.length < b.length) {
-				t = a;
-				a = b;
-				b = t;
-			}
+	roll : function () {
+		var lb = this;
+		var distributeResources = function (roll) {
+			var calcIntersectEndPts = function (a, b) {
+				var t, res = [];
+				if(a.length < b.length) {
+					t = a;
+					a = b;
+					b = t;
+				}
 
-			a_vertices = a.toString();
-			for(var i = 0; i < b.length; i++) {
-				b_vertex = b[i].toString();
-				if(a_vertices.indexOf(b_vertex) != -1)
-				   res.push(b[i]);
-			}
-			return res;
-		};
+				a_vertices = a.toString();
+				for(var i = 0; i < b.length; i++) {
+					b_vertex = b[i].toString();
+					if(a_vertices.indexOf(b_vertex) != -1)
+					   res.push(b[i]);
+				}
+				return res;
+			};
 
-		var resources = [];
-		for(var i = 0; i < this.height; i++) {
-			for(var j = 0; j < this.width; j++) {
-				if(this.state.grid[i][j].roll == roll) {
-					if(this.state.grid[i][j].resource != 5) 
-						resources.push([j, i, this.state.grid[i][j].resource]);
-					// else {}
-						// baron stuff here
+			var resources = [];
+			for(var i = 0; i < lb.height; i++) {
+				for(var j = 0; j < lb.width; j++) {
+					if(lb.state.grid[i][j].roll == roll) {
+						if(lb.state.grid[i][j].resource != 5) 
+							resources.push([j, i, lb.state.grid[i][j].resource]);
+						// else {}
+							// baron stuff here
+					}
 				}
 			}
-		}
-		
-		var resource, resourceVertices, cardsAdded = Globals.defaultState.hands.slice(0); // copy by value, JS ref trouble again!
-		var state = this.state;
-		for(var i = 0; i < resources.length; i++) {
-			resource = resources[i][2];
-			resourceVertices = this.corners([resources[i][0], resources[i][1]]);
+			
+			var resource, resourceVertices, cardsAdded = Globals.defaultState.hands.slice(0); // copy by value, JS ref trouble again!
+			var state = lb.state;
+			for(var i = 0; i < resources.length; i++) {
+				resource = resources[i][2];
+				resourceVertices = lb.corners([resources[i][0], resources[i][1]]);
 
-			for(var p = 0; p < Globals.playerData.length; p++) {
-				cardsAdded[p] = cardsAdded[p].concat(calcIntersectEndPts(state.settlements[p], resourceVertices)
-									.map(function () { return resource; })
-									.concat(calcIntersectEndPts(state.cities[p], resourceVertices).map(function () {return resource;})));
+				for(var p = 0; p < Globals.playerData.length; p++) {
+					cardsAdded[p] = cardsAdded[p].concat(calcIntersectEndPts(state.settlements[p], resourceVertices)
+										.map(function () { return resource; })
+										.concat(calcIntersectEndPts(state.cities[p], resourceVertices).map(function () {return resource;})));
+				}
 			}
-		}
-		
-		for(var p = 0; p < Globals.playerData.length; p++) {
-			this.state.hands[p] = this.state.hands[p].concat(cardsAdded[p]);
-		}
-		io.sockets.emit('distributeResources', { cardsAdded : cardsAdded, hands : this.state.hands });
+			
+			for(var p = 0; p < Globals.playerData.length; p++) {
+				lb.state.hands[p] = lb.state.hands[p].concat(cardsAdded[p]);
+			}
+			io.sockets.emit('distributeResources', { cardsAdded : cardsAdded, hands : lb.state.hands });
+		};
+
+		var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
+		io.sockets.emit('roll', { roll: dice[0]+dice[1] });
+		distributeResources(dice[0]+dice[1]);
 	},
 
 	// lobby-logic
@@ -424,7 +431,7 @@ LogicalBoard.prototype = {
 		for(var key in this.state.players) {
 			if(!this.state.players[key]) {
 				this.state.players[key] = sessId;
-				break;
+				return key;
 			}
 		}
 	},
@@ -433,7 +440,7 @@ LogicalBoard.prototype = {
 		for(var key in this.state.players) {
 			if(this.state.players[key] == sessId) {
 				this.state.players[key] = null;
-				break;
+				return key;
 			}
 		}
 	},
@@ -443,17 +450,23 @@ var lb = new LogicalBoard(Globals.gridWidth, Globals.gridHeight);
 
 io.sockets.on('connection', function (socket) {
 	socket.on('disconnect', function () {
-		lb.removePlayer(socket.id);
+		var pnum = lb.removePlayer(socket.id);
 		socket.broadcast.emit('players', {
-			players: lb.state.players
+			reason: 'DROP',
+			player: socket.id,
+			player_num: pnum,
+			players: lb.state.players,
 		});
 	});
 
 	socket.on('grabState', function (data) {
 		if(!lb.checkFullLobby()) {
-			lb.addPlayer(socket.id);
+			var pnum = lb.addPlayer(socket.id);
 			socket.broadcast.emit('players', {
-				players: lb.state.players
+				reason: 'NEW',
+				player: socket.id,
+				player_num: pnum,
+				players: lb.state.players,
 			});
 		}
 
@@ -463,15 +476,6 @@ io.sockets.on('connection', function (socket) {
 			state: lb.state,
 			sessid: socket.id,
 		});
-	});
-
-	socket.on('roll', function () {
-		if(socket.id != lb.state.players[lb.state.currentPlayer])
-			return;
-		// var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
-		var dice = [3, 6];
-		io.sockets.emit('rollResult', { roll: dice[0]+dice[1] });
-		lb.distributeResources(dice[0]+dice[1]);
 	});
 
 	socket.on('buildRequest', function (data) {
@@ -503,6 +507,7 @@ io.sockets.on('connection', function (socket) {
 			return;
 		lb.state.currentPlayer = ++lb.state.currentPlayer % Globals.playerData.length;
 		io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer});
+		lb.roll();
 	});
 });
 

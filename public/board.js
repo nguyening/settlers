@@ -1,5 +1,5 @@
 var socket = io.connect();
-var gb;
+var gb, log;
 
 var GraphicalBoard = function (_width, _height, _state, sessid) {
     //czech http://stackoverflow.com/a/18949651/1487756
@@ -12,18 +12,20 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
     this.gridHeight = _height;
     this.canvasWidth = 500;
     this.canvasHeight = 700;
-
     this.hexRadius = 50;
     this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
     this.hexHeight = this.hexRadius*1.5;
     this.hexEdgeThickness = 2;
     this.hexVertexRadius = 8;
-    this.defaultVertexFill = 'white';
+    this.defaultVertexFill = 'black';
     this.defaultEdgeStroke = 'black';
 
     this.cardWidth = 50;
     this.cardHeight = 100;
     this.cardBaseY = 500;
+
+    this.offsetX = this.hexRadius/4;
+    this.offsetY = 0;
 
     this.stage = new Kinetic.Stage({
         container: 'container',
@@ -31,9 +33,18 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
         height: this.canvasHeight
     });
 
-    this.hexLayer = new Kinetic.Layer();
-    this.edgeLayer = new Kinetic.Layer();
-    this.vertexLayer = new Kinetic.Layer();
+    this.hexLayer = new Kinetic.Layer({
+        offsetX : this.offsetX,
+        offsetY : this.offsetY,
+    });
+    this.edgeLayer = new Kinetic.Layer({
+        offsetX : this.offsetX,
+        offsetY : this.offsetY,
+    });
+    this.vertexLayer = new Kinetic.Layer({
+        offsetX : this.offsetX,
+        offsetY : this.offsetY,
+    });
     this.handLayer = new Kinetic.Layer();
 
     var gb = this;
@@ -265,7 +276,6 @@ GraphicalBoard.prototype = {
 
    drawHand : function () {
        this.handLayer.removeChildren();
-       console.log(this.player_num);
        var box, hand = this.state.hands[this.player_num];
        for(var i = 0; i < hand.length; i++) {
             box = new Kinetic.Rect({
@@ -302,6 +312,7 @@ GraphicalBoard.prototype = {
          circle = gridObject.vertices[i];
          if(circle.getAttr('coords')[2] == vertex[2]) {
             circle.setFill(Globals.playerData[this.state.currentPlayer][0]);
+            circle.setOpacity(1);
             this.vertexLayer.draw();
             break;
          }
@@ -355,24 +366,44 @@ GraphicalBoard.prototype = {
    },
 };
 
-socket.on('state', function (data) {
-    $('#sessid').text(data.sessid);
+var Log = function () {
+    this.logTypes = ['GAME', 'LOBBY'];
 
+    this.log = function (code, message) {
+        $('<p><span class="code">['+this.logTypes[code]+']</span> '+message+'</p>').appendTo($('#log'));
+    };
+};
+
+socket.on('state', function (data) {
     gb = new GraphicalBoard(data.gW, data.gH, data.state, data.sessid);
     gb.updatePlayers();
+    log = new Log();
+    log.log('GAME', 'You ('+data.sessid+') have joined the game.');
 });
 
 socket.on('players', function (data) {
     gb.state.players = data.players;
     gb.updatePlayers();
+    if(data.reason == 'DROP')
+        log.log(1, 'Player '+data.player_num+' ('+data.player+') has left the game.');
+    else if(data.reason == 'NEW')
+        log.log(1, data.player+' has joined as Player '+data.player_num);
+    else 
+        log.log(1, 'Lobby has been updated.');
+});
+
+socket.on('roll', function (data) {
+    log.log(0, 'Player '+gb.state.currentPlayer+' has rolled a '+data.roll+'.');
 });
 
 socket.on('distributeResources', function (data) {
     // data.cardsAdded
     gb.state.hands = data.hands;
     gb.drawHand();
-})
-socket.on('buildAccept', function (data) {   
+    log.log(0, 'Resources have been distributed for the roll.');
+});
+
+socket.on('buildAccept', function (data) {  
     if(data.type == 'road') {
         gb.drawRoad(data.coords);
     }  
@@ -382,11 +413,13 @@ socket.on('buildAccept', function (data) {
     else if(data.type == 'city') {
         gb.drawCity(data.coords);
     }
+    log.log(0, 'Player ' + (gb.state.currentPlayer + 1) + ' has built a ' + data.type + '@' + data.coords);
 });
 
 socket.on('nextTurn', function (data) {
-   gb.state.currentPlayer = data.currentPlayer;
-   gb.updatePlayers();
+    log.log(0, 'Player ' + gb.state.currentPlayer + ' has ended their turn.');
+    gb.state.currentPlayer = data.currentPlayer;
+    gb.updatePlayers();
 });
 
 
@@ -394,8 +427,5 @@ $(function () {
     socket.emit('grabState', {});
    $('#endTurn').click(function (evt) {
       socket.emit('endTurn', {});
-   });
-    $('#roll').click(function (evt) {
-      socket.emit('roll', {});
    });
 });

@@ -8,7 +8,6 @@ Globals.edgeLabels = ['N', 'W', 'S'];
 Globals.vertexLabels = ['N', 'S'];
 Globals.playerData = [['red'], ['blue'], ['yellow'], ['white']];
 Globals.defaultState = {
-    phase : 'roll',
     grid : [],
     players : {0:null, 1:null, 2:null, 3:null},
     settlements : [[],[],[],[]],
