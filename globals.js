@@ -8,8 +8,9 @@ var Globals = {
    terrains : [1,2,3,4,5],
    edgeLabels : ['N', 'W', 'S'],
    vertexLabels : ['N', 'S'],
-   players : [['red'], ['blue'], ['yellow'], ['white']],
+   playerData : [['red'], ['blue'], ['yellow'], ['white']],
    defaultState : {
+     players : {0:null, 1:null, 2:null, 3:null},
 	  settlements : [[],[],[],[]],
 	  roads : [[],[],[],[]],
 	  hands : [[],[],[],[]],
@@ -21,5 +22,5 @@ var Globals = {
 exports.terrains = Globals.terrains;
 exports.edgeLabels = Globals.edgeLabels;
 exports.vertexLabels = Globals.vertexLabels;
-exports.players = Globals.players;
+exports.playerData = Globals.playerData;
 exports.defaultState = Globals.defaultState;

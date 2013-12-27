@@ -316,23 +316,75 @@ var LogicalBoard = function (_width, _height) {
 	  }
 	  else
 	     return false;
-	},   
+	},  
+
+	// lobby-logic
+	checkFullLobby : function () {
+		var players = [];
+		for(var key in this.state.players) {
+			var val = this.state.players[key];
+			if(val) players.push(val);
+		}
+		return players.length == Globals.playerData.length;
+	},
+
+	addPlayer : function (sessId) {
+		// put player in first free slot
+		for(var key in this.state.players) {
+			if(!this.state.players[key]) {
+				this.state.players[key] = sessId;
+				break;
+			}
+		}
+		this.updatePlayers();
+	},
+
+	removePlayer : function (sessId) {
+		for(var key in this.state.players) {
+			if(this.state.players[key] == sessId) {
+				this.state.players[key] = null;
+				break;
+			}
+		}
+		this.updatePlayers();
+	},
+
+	updatePlayers : function () {
+		io.sockets.emit('players', {
+			players: lb.state.players
+		});
+	},
 };
 
 var gridWidth = 6, gridHeight = 6;
 var lb = new LogicalBoard(gridWidth, gridHeight);
 
 io.sockets.on('connection', function (socket) {
-	socket.on('newConnection', function (data) {
-		socket.emit('acceptConnection', {
+	socket.on('disconnect', function () {
+		lb.removePlayer(socket.id);
+		console.log(lb.state.players);
+	});
+
+	socket.on('grabState', function (data) {
+		if(!lb.checkFullLobby())
+			lb.addPlayer(socket.id);
+
+		console.log(lb.state.players);
+		socket.emit('state', {
 			gW: gridWidth,
 			gH: gridHeight,
 			state: lb.state,
+			sessid: socket.id,
 		});
 	});
 
-	socket.on('build', function (data) {
-		console.log(lb.canBuild(data.type, data.coords) );
+	socket.on('buildRequest', function (data) {
+		console.log(lb.state.players[lb.state.currentPlayer]);
+		// make sure request is during this user's turn
+		if(socket.id != lb.state.players[lb.state.currentPlayer])
+			return;
+
+		// check if user can build or can override
 		if(lb.canBuild(data.type, data.coords) || data.override == true) {
 			if(data.type == 'road') {
 				lb.state.roads[lb.state.currentPlayer].push(data.coords);
@@ -341,7 +393,7 @@ io.sockets.on('connection', function (socket) {
 				lb.state.settlements[lb.state.currentPlayer].push(data.coords);
 			}
 
-			socket.emit('buildAccept', {
+			io.sockets.emit('buildAccept', {	// send to all clients
 				type: data.type,
 				coords: data.coords
 			});
@@ -349,7 +401,7 @@ io.sockets.on('connection', function (socket) {
 	});
 
 	socket.on('nextTurn', function (data) {
-		lb.state.currentPlayer = ++lb.state.currentPlayer % (Globals.players.length - 1);
+		lb.state.currentPlayer = ++lb.state.currentPlayer % (Globals.playerData.length - 1);
 		io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer});
 	});
 });

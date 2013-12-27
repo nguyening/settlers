@@ -120,9 +120,9 @@ GraphicalBoard.prototype = {
                coords = [j, i, Globals.edgeLabels[k]];
 
                color = undefined;
-               for(l = 0; l < Globals.players.length; l++) {
+               for(l = 0; l < Globals.playerData.length; l++) {
                   if(state.roads[l].toString().indexOf(coords.toString()) != -1) {
-                     color = Globals.players[l][0];
+                     color = Globals.playerData[l][0];
                      break;
                   }
                }
@@ -172,9 +172,9 @@ GraphicalBoard.prototype = {
                coords = [j, i, Globals.vertexLabels[k]];
 
                color = undefined;
-               for(l = 0; l < Globals.players.length; l++) {
+               for(l = 0; l < Globals.playerData.length; l++) {
                   if(state.settlements[l].toString().indexOf(coords.toString()) != -1) {
-                     color = Globals.players[l][0];
+                     color = Globals.playerData[l][0];
                      break;
                   }
                }
@@ -214,7 +214,7 @@ GraphicalBoard.prototype = {
    },
 
    build : function (type, tN, override) {
-      socket.emit('build', {
+      socket.emit('buildRequest', {
          'type': type,
          coords: tN.getAttr('coords'),
          'override': override
@@ -227,7 +227,7 @@ GraphicalBoard.prototype = {
       for(i = 0; i < gridObject.edges.length; i++) {
          line = gridObject.edges[i];
          if(line.getAttr('coords')[2] == edge[2]) {
-            line.setStroke(Globals.players[this.state.currentPlayer][0]);
+            line.setStroke(Globals.playerData[this.state.currentPlayer][0]);
             this.edgeLayer.draw();
             break;
          }
@@ -240,7 +240,7 @@ GraphicalBoard.prototype = {
       for(i = 0; i < gridObject.vertices.length; i++) {
          circle = gridObject.vertices[i];
          if(circle.getAttr('coords')[2] == vertex[2]) {
-            circle.setFill(Globals.players[this.state.currentPlayer][0]);
+            circle.setFill(Globals.playerData[this.state.currentPlayer][0]);
             this.vertexLayer.draw();
             break;
          }
@@ -248,8 +248,9 @@ GraphicalBoard.prototype = {
    },
 };
 
-socket.on('acceptConnection', function (data) {
+socket.on('state', function (data) {
    gb = new GraphicalBoard(data.gW, data.gH, data.state);
+   console.log(data.sessid);
 });
 
 socket.on('buildAccept', function (data) {   
@@ -265,9 +266,13 @@ socket.on('nextTurn', function (data) {
    gb.state.currentPlayer = data.currentPlayer;
 });
 
-$(function () {
-   socket.emit('newConnection', {});
+socket.on('players', function (data) {
+	gb.state.players = data.players;
+	$('#players').text(JSON.stringify(gb.state.players));
+});
 
+$(function () {
+	socket.emit('grabState', {});
    $('#nextTurn').click(function (evt) {
       socket.emit('nextTurn', {});
    });
