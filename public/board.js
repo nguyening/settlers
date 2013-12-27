@@ -53,7 +53,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
         var line = evt.targetNode;
         var edge = line.getAttr('coords');
         if(line.getAttr('stroke') == gb.defaultEdgeStroke) {
-            gb.build('road', edge, evt.which==2);
+            gb.build('road', edge);
         }
     });
 
@@ -64,7 +64,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
             gb.build('city', vertex);
         }
         else {
-            gb.build('settlement', vertex, evt.which==2);
+            gb.build('settlement', vertex);
         }
     });
 
@@ -119,9 +119,9 @@ GraphicalBoard.prototype = {
                 this.hexLayer.add(hex);
 
                 var text = new Kinetic.Text({
-                   x: _x,
-                   y: _y,
-                   text: ''+state.grid[i][j].roll+' ('+j+', '+i+')',
+                   x: _x-3,
+                   y: _y-3,
+                   text: ''+state.grid[i][j].roll,
                    fontSize: 12,
                    fontFamily: 'Calibri',
                    fill: 'black',
@@ -180,11 +180,17 @@ GraphicalBoard.prototype = {
                if(color == defaultEdgeStroke) {
                    // Edge hover interactions
                    line.on('mouseover', function () {
+                        if( (gb.state.currentPlayer != gb.player_num) || // if it isn't your turn, don't show effects
+                            (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('') != Globals.playerData[gb.player_num][0]))
+                            return;
                       this.setStrokeWidth(hexEdgeThickness*5);
                       gb.edgeLayer.draw();
                    });
 
                    line.on('mouseleave', function () {
+                        if( (gb.state.currentPlayer != gb.player_num) ||
+                            (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('') != Globals.playerData[gb.player_num][0]))
+                            return;
                       this.setStrokeWidth(hexEdgeThickness);
                       gb.edgeLayer.draw();
                    });
@@ -240,6 +246,9 @@ GraphicalBoard.prototype = {
                    });
 
                    circle.on('mouseover', function () {
+                        if( (gb.state.currentPlayer != gb.player_num) ||
+                            (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.player_num][0]))
+                            return;
                         this.setAttrs({
                             opacity: 1,
                             radius: hexVertexRadius*3,
@@ -250,6 +259,9 @@ GraphicalBoard.prototype = {
                    });
 
                    circle.on('mouseleave', function () {
+                        if( (gb.state.currentPlayer != gb.player_num) ||
+                            (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.player_num][0]))
+                            return;
                         this.setAttrs({
                             opacity: (this.getAttr('fill') == defaultVertexFill) ? 0 : 1,
                             radius: hexVertexRadius,
@@ -357,11 +369,10 @@ GraphicalBoard.prototype = {
         }
    },
 
-  build : function (type, coords, override) {
+  build : function (type, coords) {
       socket.emit('buildRequest', {
          'type': type,
-         'coords': coords,
-         'override': override
+         'coords': coords
       });
    },
 };
@@ -385,15 +396,15 @@ socket.on('players', function (data) {
     gb.state.players = data.players;
     gb.updatePlayers();
     if(data.reason == 'DROP')
-        log.log(1, 'Player '+data.player_num+' ('+data.player+') has left the game.');
+        log.log(1, 'Player '+(data.player_num+1)+' ('+data.player+') has left the game.');
     else if(data.reason == 'NEW')
-        log.log(1, data.player+' has joined as Player '+data.player_num);
+        log.log(1, data.player+' has joined as Player '+(data.player_num+1));
     else 
         log.log(1, 'Lobby has been updated.');
 });
 
 socket.on('roll', function (data) {
-    log.log(0, 'Player '+gb.state.currentPlayer+' has rolled a '+data.roll+'.');
+    log.log(0, 'Player '+(gb.state.currentPlayer+1)+' has rolled a '+data.roll+'.');
 });
 
 socket.on('distributeResources', function (data) {
@@ -401,6 +412,12 @@ socket.on('distributeResources', function (data) {
     gb.state.hands = data.hands;
     gb.drawHand();
     log.log(0, 'Resources have been distributed for the roll.');
+});
+
+socket.on('deduct', function (data) {
+    gb.state.hands[gb.player_num] = data.hand;
+    if(data.action == 'build')
+        log.log(0, 'You have lost resources from building.');
 });
 
 socket.on('buildAccept', function (data) {  
@@ -417,7 +434,8 @@ socket.on('buildAccept', function (data) {
 });
 
 socket.on('nextTurn', function (data) {
-    log.log(0, 'Player ' + gb.state.currentPlayer + ' has ended their turn.');
+    log.log(0, 'Player ' + (gb.state.currentPlayer+1) + ' has ended their turn.');
+    // log.log(0, 'Round '+data.round);
     gb.state.currentPlayer = data.currentPlayer;
     gb.updatePlayers();
 });
@@ -428,4 +446,8 @@ $(function () {
    $('#endTurn').click(function (evt) {
       socket.emit('endTurn', {});
    });
+
+   $('#giveResource').click(function (evt) {
+       socket.emit('giveResource', {resource: parseInt($('#resource').val())});
+   })
 });

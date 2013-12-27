@@ -16,6 +16,7 @@ Globals.playerData = [['red'], ['blue'], ['yellow'], ['white']];
 Globals.defaultState = {
     grid : [],
     players : {0:null, 1:null, 2:null, 3:null},
+    round : 0,
     settlements : [[],[],[],[]],
     cities : [[],[],[],[]],
     roads : [[],[],[],[]],

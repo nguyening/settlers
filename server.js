@@ -26,7 +26,6 @@ var LogicalBoard = function (_width, _height) {
 
 	this.state = JSON.parse(JSON.stringify(Globals.defaultState));	// clone object
 
-
 	this.Hex = function (_resource, _roll, _x, _y) {
 		this.resource = _resource;
 		this.roll = _roll;
@@ -289,76 +288,114 @@ LogicalBoard.prototype = {
 	// game-logic
 
 	canBuild : function (build, data) {
-	  if(data == null)
-	     return false;
+		var logic = this;
+		var state = JSON.parse(JSON.stringify(logic.state));
 
-	  var logic = this;
-	  var state = logic.state;
+		// check if two arrays have intersecting coordinates
+		var intersectEndPts = function (a, b) {
+		var t;
+		if(a.length < b.length) {
+			t = a;
+			a = b;
+			b = t;
+		}
 
-	  // check if two arrays have intersecting coordinates
-	  var intersectEndPts = function (a, b) {
-	     var t;
-	     if(a.length < b.length) {
-	        t = a;
-	        a = b;
-	        b = t;
-	     }
+		a_vertices = a.toString();
+		for(var i = 0; i < b.length; i++) {
+			b_vertex = b[i].toString();
+			if(a_vertices.indexOf(b_vertex) != -1)
+				return true;
+			}
+		return false;
+		};
 
-	     a_vertices = a.toString();
-	     for(var i = 0; i < b.length; i++) {
-	        b_vertex = b[i].toString();
-	        if(a_vertices.indexOf(b_vertex) != -1)
-	           return true;
-	     }
-	     return false;
-	  };
+		// checks if array of objects a contains object b
+		var objArrContains = function (a, b) {
+		for(var i = 0; i < a.length; i++) {
+			if(a[i].toString() == b.toString())
+				return true;
+			}
+			return false;
+		}
 
-	  // checks if array of objects a contains object b
-	  var objArrContains = function (a, b) {
-	  	for(var i = 0; i < a.length; i++) {
-	  		// console.log(a[i]);
-	  		// console.log(b);
-	  		if(a[i].toString() == b.toString())
-	  			return true;
-	  	}
-	  	return false;
-	  }
-	  
-	  if(build == 'road') {
-	  	 var opponentRds = [];
-	  	 for(var i = 0; i < Globals.playerData.length; i++) {
-	  	 	if(i != state.currentPlayer)
-	  	 		opponentRds = opponentRds.concat(state.roads[i]);
-	  	 }
+		if(build == 'road') {
+			var opponentRds = [];
+			for(var i = 0; i < Globals.playerData.length; i++) {
+				if(i != state.currentPlayer)
+					opponentRds = opponentRds.concat(state.roads[i]);
+			}
 
-	     var availableEndPts = [].concat.apply([], state.roads[state.currentPlayer].map(function (edge, idx) {
-	        return logic.endpoints(edge);
-	     }));
-	     var currentSettlements = state.settlements[state.currentPlayer];
-	     var roadEndPts = this.endpoints(data);
-	     // console.log(objArrContains(opponentRds, data));
+			var availableEndPts = [].concat.apply([], state.roads[state.currentPlayer].map(function (edge, idx) {
+				return logic.endpoints(edge);
+			}));
+			var currentSettlements = state.settlements[state.currentPlayer];
+			var roadEndPts = this.endpoints(data);
 
-	     return ((intersectEndPts(availableEndPts, roadEndPts) || intersectEndPts(currentSettlements, roadEndPts)) && !objArrContains(opponentRds, data));
-	  }
-	  else if(build == 'settlement') {
-	     var availableEndPts = state.roads[state.currentPlayer].map(function (edge, idx) {
-	        return logic.endpoints(edge);
-	     });
-	     var selectedVertex = [data];
+			return ((intersectEndPts(availableEndPts, roadEndPts) || intersectEndPts(currentSettlements, roadEndPts)) && !objArrContains(opponentRds, data));
+		}
+		else if(build == 'settlement') {
+			var availableEndPts = state.roads[state.currentPlayer].map(function (edge, idx) {
+				return logic.endpoints(edge);
+			});
+			var selectedVertex = [data];
 
-	     var adjacentVertices = this.adjacent(data);
+			var adjacentVertices = this.adjacent(data);
 
-	     var currentSettlements = [].concat.apply([], state.settlements);
-	     return (intersectEndPts(availableEndPts, selectedVertex) && !intersectEndPts(currentSettlements, adjacentVertices));
-	  }
-	  else if(build == 'city') {
+			var currentSettlements = [].concat.apply([], state.settlements);
+
+			if( (state.round < 1 && state.settlements[state.currentPlayer].length < 1) ||
+				(state.round > 1 && state.round < 2 && state.settlements[state.currentPlayer].length < 2) || 
+				(state.settlements[state.currentPlayer].length < 2 && state.currentPlayer == Globals.playerData.length - 1))	// last player can place twice
+				return !intersectEndPts(currentSettlements, adjacentVertices);
+			else
+				return (intersectEndPts(availableEndPts, selectedVertex) && !intersectEndPts(currentSettlements, adjacentVertices));
+		}
+		else if(build == 'city') {
 			var currentSettlements = state.settlements[state.currentPlayer];
 			var currentCities = state.cities[state.currentPlayer];
 			return intersectEndPts(currentSettlements, [data]) && !intersectEndPts(currentCities, [data]);
-	  }
-	  else
-	     return false;
+		}
+		else
+			return false;
 	},  
+
+	canAfford : function (type) {
+		var hand = this.state.hands[this.state.currentPlayer].slice(0);
+
+		if(this.state.round < 2) {							// first 2 rounds are freebies
+			if(type == 'road') {
+				if( (this.state.round < 1 && this.state.roads[this.state.currentPlayer].length == 0) ||
+					(this.state.round > 1 && this.state.round < 2 && this.state.roads[this.state.currentPlayer].length == 1) ||
+					(this.state.round < 1 && this.state.roads[this.state.currentPlayer].length == 1 && this.state.currentPlayer == Globals.playerData.length -1))
+					return hand;
+				else
+					return false;
+			}
+			else if(type == 'settlement')
+				return hand;
+		}
+
+		// deduct resources from a given b
+		var deduct = function (a, b) {
+			for(var i = 0; i < b.length; i++) {
+				var idx = a.indexOf(b[i]);
+				if(idx == -1)
+					return false;
+
+				a.splice(idx, 1);
+			}
+			return a;
+		};
+		if(type == 'road') {
+			return deduct(hand, [4, 0]);
+		}
+		else if(type == 'settlement') {
+			return deduct(hand, [0, 1, 3, 4]);
+		}
+		else if(type == 'city') {
+			return deduct(hand, [3, 3, 2, 2, 2]);
+		}
+	},
 
 	roll : function () {
 		var lb = this;
@@ -484,7 +521,8 @@ io.sockets.on('connection', function (socket) {
 			return;
 
 		// check if user can build or can override
-		if(lb.canBuild(data.type, data.coords) || data.override == true) {
+		var hand;
+		if((hand=lb.canAfford(data.type)) && lb.canBuild(data.type, data.coords)) {
 			if(data.type == 'road') {
 				lb.state.roads[lb.state.currentPlayer].push(data.coords);
 			}
@@ -495,19 +533,72 @@ io.sockets.on('connection', function (socket) {
 				lb.state.cities[lb.state.currentPlayer].push(data.coords);
 			}
 
+			lb.state.hands[lb.state.currentPlayer] = hand;
+
 			io.sockets.emit('buildAccept', {	// send to all clients
 				type: data.type,
 				coords: data.coords
 			});
+
+			if(lb.state.round >= 2) {
+				socket.emit('deduct', {
+					action: 'build',
+					hand: hand,
+				});	
+			}
 		}
 	});
 
 	socket.on('endTurn', function (data) {
 		if(socket.id != lb.state.players[lb.state.currentPlayer])
 			return;
-		lb.state.currentPlayer = ++lb.state.currentPlayer % Globals.playerData.length;
-		io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer});
-		lb.roll();
+
+		// player order goes 0,1,2,3,2,1,0 to place settlements and roads
+		if(lb.state.round < 1 && lb.state.currentPlayer == Globals.playerData.length - 1) {
+			// console.log(lb.state.round);
+			lb.state.round += 1/Globals.playerData.length;
+			// console.log(lb.state.round);
+		}
+		lb.state.round += 1/Globals.playerData.length;
+
+		if(lb.state.round < 1) {
+			lb.state.currentPlayer = ++lb.state.currentPlayer % Globals.playerData.length;
+			io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer, round: lb.state.round});
+		}
+		else if((1 < lb.state.round) && (lb.state.round < 2)) {
+			lb.state.currentPlayer -= 1;
+			io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer, round: lb.state.round});
+		}	
+		else if(lb.state.round == 2) {
+			lb.state.currentPlayer = 0;
+			io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer, round: lb.state.round});
+			lb.roll();
+		}
+		else {
+		// normal rounds			
+			lb.state.currentPlayer = ++lb.state.currentPlayer % Globals.playerData.length;
+			io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer, round: lb.state.round});
+			lb.roll();
+		}
+	});
+
+	// admin/debugging
+
+	socket.on('giveResource', function (data) {
+		if(data.resource == 5)	// shouldn't give desert
+			return;
+
+		var p = Array.apply(null, {length: Globals.playerData.length}).map(function(el, i) {return lb.state.players[i]})
+				.indexOf(socket.id);
+		var cardsAdded = Globals.defaultState.hands.slice(0);
+		cardsAdded[p] = Array.apply(null, {length:3}).map(function() {return data.resource;});
+		var hands = lb.state.hands;
+		hands[p] = hands[p].concat(cardsAdded[p]);
+
+		io.sockets.emit('distributeResources', {
+			cardsAdded: cardsAdded,
+			hands: hands,
+		});
 	});
 });
 
