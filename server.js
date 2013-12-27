@@ -300,8 +300,8 @@ var LogicalBoard = function (_width, _height) {
 	  // checks if array of objects a contains object b
 	  var objArrContains = function (a, b) {
 	  	for(i = 0; i < a.length; i++) {
-	  		console.log(a[i]);
-	  		console.log(b);
+	  		// console.log(a[i]);
+	  		// console.log(b);
 	  		if(a[i].toString() == b.toString())
 	  			return true;
 	  	}
@@ -318,10 +318,11 @@ var LogicalBoard = function (_width, _height) {
 	     var availableEndPts = [].concat.apply([], state.roads[state.currentPlayer].map(function (edge, idx) {
 	        return logic.endpoints(edge);
 	     }));
+	     var currentSettlements = state.settlements[state.currentPlayer];
 	     var roadEndPts = this.endpoints(data);
-	     console.log(objArrContains(opponentRds, data));
+	     // console.log(objArrContains(opponentRds, data));
 
-	     return (intersectEndPts(availableEndPts, roadEndPts) && !objArrContains(opponentRds, data));
+	     return ((intersectEndPts(availableEndPts, roadEndPts) || intersectEndPts(currentSettlements, roadEndPts)) && !objArrContains(opponentRds, data));
 	  }
 	  else if(build == 'settlement') {
 	     var availableEndPts = state.roads[state.currentPlayer].map(function (edge, idx) {
@@ -333,6 +334,11 @@ var LogicalBoard = function (_width, _height) {
 
 	     var currentSettlements = [].concat.apply([], state.settlements);
 	     return (intersectEndPts(availableEndPts, selectedVertex) && !intersectEndPts(currentSettlements, adjacentVertices));
+	  }
+	  else if(build == 'city') {
+			var currentSettlements = state.settlements[state.currentPlayer];
+			var currentCities = state.cities[state.currentPlayer];
+			return intersectEndPts(currentSettlements, [data]) && !intersectEndPts(currentCities, [data]);
 	  }
 	  else
 	     return false;
@@ -409,6 +415,9 @@ io.sockets.on('connection', function (socket) {
 			}
 			else if(data.type == 'settlement') {
 				lb.state.settlements[lb.state.currentPlayer].push(data.coords);
+			}
+			else if(data.type == 'city') {
+				lb.state.cities[lb.state.currentPlayer].push(data.coords);
 			}
 
 			io.sockets.emit('buildAccept', {	// send to all clients

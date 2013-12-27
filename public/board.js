@@ -2,58 +2,54 @@ var socket = io.connect();
 var gb;
 
 var GraphicalBoard = function (_width, _height, _state) {
-   this.grid = [];
-   this.state = _state || Globals.defaultState;
-   this.gridWidth = _width;
-   this.gridHeight = _height;
-   this.canvasWidth = 1000;
-   this.canvasHeight = 600;
-   this.canvasOffsetX = -50;
-   this.canvasOffsetY = -50;
+    this.grid = [];
+    this.state = _state || Globals.defaultState;
+    this.gridWidth = _width;
+    this.gridHeight = _height;
+    this.canvasWidth = 500;
+    this.canvasHeight = 500;
 
-   this.hexRadius = 50;
-   this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
-   this.hexHeight = this.hexRadius*1.5;
-   this.hexEdgeThickness = 2;
-   this.hexVertexRadius = 10;
+    this.hexRadius = 50;
+    this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
+    this.hexHeight = this.hexRadius*1.5;
+    this.hexEdgeThickness = 2;
+    this.hexVertexRadius = 8;
 
-   this.stage = new Kinetic.Stage({
-      container: 'container',
-      width: this.canvasWidth,
-      height: this.canvasHeight
-   });
+    this.stage = new Kinetic.Stage({
+        container: 'container',
+        width: this.canvasWidth,
+        height: this.canvasHeight
+    });
 
-   this.hexLayer = new Kinetic.Layer({
-      offsetX: this.canvasOffsetX,
-      offsetY: this.canvasOffsetY
-   });
-   this.edgeLayer = new Kinetic.Layer({
-      offsetX: this.canvasOffsetX,
-      offsetY: this.canvasOffsetY
-   });
-   this.vertexLayer = new Kinetic.Layer({
-      offsetX: this.canvasOffsetX,
-      offsetY: this.canvasOffsetY
-   });
+    this.hexLayer = new Kinetic.Layer();
+    this.edgeLayer = new Kinetic.Layer();
+    this.vertexLayer = new Kinetic.Layer();
 
-   var gb = this;
-   // Click bindings
-   this.edgeLayer.on('click', function (evt) {
-      var line = evt.targetNode;
-      var edge = line.getAttr('coords');
-      gb.build('road', line, evt.which==2);
-   });
+    var gb = this;
+    // Click bindings
+    this.edgeLayer.on('click', function (evt) {
+        var line = evt.targetNode;
+        var edge = line.getAttr('coords');
+        if(line.getAttr('stroke') == 'black') {
+            gb.build('road', edge, evt.which==2);
+        }
+    });
 
-   this.vertexLayer.on('click', function (evt) {
-      var circle = evt.targetNode;
-      var vertex = circle.getAttr('coords');
-      gb.build('settlement', circle, evt.which==2);
-   });
+    this.vertexLayer.on('click', function (evt) {
+        var circle = evt.targetNode;
+        var vertex = circle.getAttr('coords');
+        if(circle.getAttr('fill') != 'green') {
+            gb.build('city', vertex);
+        }
+        else {
+            gb.build('settlement', vertex, evt.which==2);
+        }
+    });
 
-   this.stage.add(this.hexLayer);
-   this.stage.add(this.edgeLayer);
-   this.stage.add(this.vertexLayer);   
-   this.init.apply(this, [this.state]);
+    this.stage.add(this.hexLayer);
+    this.stage.add(this.edgeLayer);
+    this.stage.add(this.vertexLayer);   
+    this.init.apply(this, [this.state]);
 };
 
 GraphicalBoard.prototype = {
@@ -68,14 +64,11 @@ GraphicalBoard.prototype = {
       var hexHeight = this.hexHeight;
       var hexEdgeThickness = this.hexEdgeThickness;
       var hexVertexRadius = this.hexVertexRadius;
-      var row, color;
+      var row, color, city_flag;
 
       for(i = 0; i < this.gridHeight; i++) {
          row = [];
          for(j = 0; j < this.gridWidth; j++) {
-            color = 'green';
-            if(this.isUnusedFace([j, i]))
-                color = 'blue';
 
             gridObject = {
                face : null,
@@ -86,27 +79,29 @@ GraphicalBoard.prototype = {
             _y = (2 * i + 1) * (hexHeight/2);
 
 
-            // Draw hexagon face
-            hex = new Kinetic.RegularPolygon({
-               x: _x,
-               y: _y,
-               sides: 6,
-               radius: hexRadius,
-               fill: color,
-            });
+            if(!this.isUnusedFace([j, i])) {
+                // Draw hexagon face
+                hex = new Kinetic.RegularPolygon({
+                   x: _x,
+                   y: _y,
+                   sides: 6,
+                   radius: hexRadius,
+                   fill: 'green',
+                });
 
-            gridObject.face = hex;
-            this.hexLayer.add(hex);
+                gridObject.face = hex;
+                this.hexLayer.add(hex);
 
-            var text = new Kinetic.Text({
-               x: _x,
-               y: _y,
-               text: j + ', ' + i,
-               fontSize: 12,
-               fontFamily: 'Calibri',
-               fill: 'black',
-            });
-            this.hexLayer.add(text);
+                var text = new Kinetic.Text({
+                   x: _x,
+                   y: _y,
+                   text: j + ', ' + i,
+                   fontSize: 12,
+                   fontFamily: 'Calibri',
+                   fill: 'black',
+                });
+                this.hexLayer.add(text);
+            }
 
             // Drawing hexagon edges (N, W, S)
             x_offset = hexRadius * Math.cos(30 * Math.PI / 180);
@@ -156,16 +151,18 @@ GraphicalBoard.prototype = {
                   'coords': coords,
                });
 
-               // Edge hover interactions
-               line.on('mouseover', function () {
-                  this.setStrokeWidth(hexEdgeThickness*5);
-                  gb.edgeLayer.draw();
-               });
+               if(color == 'black') {
+                   // Edge hover interactions
+                   line.on('mouseover', function () {
+                      this.setStrokeWidth(hexEdgeThickness*5);
+                      gb.edgeLayer.draw();
+                   });
 
-               line.on('mouseleave', function () {
-                  this.setStrokeWidth(hexEdgeThickness);
-                  gb.edgeLayer.draw();
-               })
+                   line.on('mouseleave', function () {
+                      this.setStrokeWidth(hexEdgeThickness);
+                      gb.edgeLayer.draw();
+                   });
+               }
                gridObject.edges.push(line);
                this.edgeLayer.add(line);
             }
@@ -174,6 +171,7 @@ GraphicalBoard.prototype = {
             vertices = [edge_vertices[0], edge_vertices[3]];
 
             for(k = 0; k < vertices.length; k++) {
+                city_flag = false;
                vertex = vertices[k];
                coords = [j, i, Globals.vertexLabels[k]];
                 if(this.isUnusedVertex(coords))
@@ -183,33 +181,61 @@ GraphicalBoard.prototype = {
                for(l = 0; l < Globals.playerData.length; l++) {
                   if(state.settlements[l].toString().indexOf(coords.toString()) != -1) {
                      color = Globals.playerData[l][0];
+                      if(state.settlements[l].toString().indexOf(coords.toString()) != -1) {
+                        city_flag = true;
+                      }
                      break;
                   }
                }
                color = color || 'green';
+               if(city_flag) {
+                star  = new Kinetic.Star({
+                    x: vertex[0],
+                    y: vertex[1],
+                    numPoints: 6,
+                    innerRadius: hexVertexRadius,
+                    outerRadius: hexVertexRadius*2,
+                    fill: color,
+                    stroke: 'black',
+                    strokeWidth: 1,
+                    coords: coords,
+                });
+                gridObject.vertices.push(star);
+                this.vertexLayer.add(star);
+               }
+               else {
+                   circle = new Kinetic.Circle({
+                      x: vertex[0],
+                      y: vertex[1],
+                      radius: hexVertexRadius,
+                      fill: color,
+                      opacity: (color == 'green') ? 0 : 1,
+                      'coords': coords,
+                   });
 
-               circle = new Kinetic.Circle({
-                  x: vertex[0],
-                  y: vertex[1],
-                  radius: hexVertexRadius,
-                  fill: color,
-                  stroke: 'black',
-                  strokeWidth: 2,
-                  'coords': coords,
-               });
+                   circle.on('mouseover', function () {
+                        this.setAttrs({
+                            opacity: 1,
+                            radius: hexVertexRadius*3,
+                            stroke: 'black',
+                            strokeWidth: 2,
+                        });
+                      gb.vertexLayer.draw();
+                   });
 
-               circle.on('mouseover', function () {
-                  this.setRadius(hexVertexRadius*2);
-                  gb.vertexLayer.draw();
-               });
+                   circle.on('mouseleave', function () {
+                        this.setAttrs({
+                            opacity: (this.getAttr('fill') == 'green') ? 0 : 1,
+                            radius: hexVertexRadius,
+                            stroke: null,
+                            strokeWidth: 0,
+                        });
+                      gb.vertexLayer.draw();
+                   });
 
-               circle.on('mouseleave', function () {
-                  this.setRadius(hexVertexRadius);
-                  gb.vertexLayer.draw();
-               });
-
-               gridObject.vertices.push(circle);
-               this.vertexLayer.add(circle);
+                   gridObject.vertices.push(circle);
+                   this.vertexLayer.add(circle);
+               }
             }
 
             row.push(gridObject);
@@ -253,10 +279,10 @@ GraphicalBoard.prototype = {
                 (y < this.gridHeight/2 - 1 && (x == 0 || x > this.gridWidth - 2) && label == 'N');      // top corners diag
     },
 
-   build : function (type, tN, override) {
+   build : function (type, coords, override) {
       socket.emit('buildRequest', {
          'type': type,
-         coords: tN.getAttr('coords'),
+         'coords': coords,
          'override': override
       });
    },
@@ -285,7 +311,31 @@ GraphicalBoard.prototype = {
             break;
          }
       }
-   },
+    },
+
+    drawCity : function (vertex) {
+        var gridObject = this.grid[vertex[1]][[vertex[0]]];
+        var star;
+        for(i = 0; i < gridObject.vertices.length; i++) {
+            circle = gridObject.vertices[i];
+            if(circle.getAttr('coords')[2] == vertex[2]) {
+                star  = new Kinetic.Star({
+                    x: circle.getAttr('x'),
+                    y: circle.getAttr('y'),
+                    numPoints: 6,
+                    innerRadius: this.hexVertexRadius,
+                    outerRadius: this.hexVertexRadius*2,
+                    fill: Globals.playerData[this.state.currentPlayer][0],
+                    stroke: 'black',
+                    strokeWidth: 1,
+                });
+                circle.remove();
+                this.vertexLayer.add(star);
+                this.vertexLayer.draw();
+                break;
+            }
+        }
+    },
 
    //lobby-drawing
     updatePlayers : function function_name (argument) {
@@ -303,18 +353,22 @@ GraphicalBoard.prototype = {
 };
 
 socket.on('state', function (data) {
+    $('#sessid').text(data.sessid);
+
     gb = new GraphicalBoard(data.gW, data.gH, data.state);
     gb.updatePlayers();
-    $('#sessid').text(data.sessid);
 });
 
 socket.on('buildAccept', function (data) {   
-   if(data.type == 'road') {
-      gb.drawRoad(data.coords);
-   }  
-   else if(data.type == 'settlement') {
-      gb.drawSettlement(data.coords);
-   };
+    if(data.type == 'road') {
+        gb.drawRoad(data.coords);
+    }  
+    else if(data.type == 'settlement') {
+        gb.drawSettlement(data.coords);
+    }
+    else if(data.type == 'city') {
+        gb.drawCity(data.coords);
+    }
 });
 
 socket.on('nextTurn', function (data) {
