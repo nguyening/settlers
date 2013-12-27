@@ -1,17 +1,11 @@
 doctype html
 html
    head
-      title Chat
+      title Settlers
       script(src='https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js')
-      script(src="/socket.io/socket.io.js")
-      script(src="script.js")
+      script(src='/socket.io/socket.io.js')
+      script(src="./kinetic-v4.7.4.min.js")
+      script(src="./globals.js")
+      script(src="./board.js")
    body
-      div.container
-         header
-            h1 A Chat application with Node.js and Socket.io
-         input(type='text')#pseudoInput
-         button#pseudoSet Set Pseudo
-         div#chatEntries
-         div#chatControls
-            input(type='text')#messageInput
-            button#submit Send
+      div#container

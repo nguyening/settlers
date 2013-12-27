@@ -1,319 +1,5 @@
-/*
-   5 types of resources, 2 tiles
-   1 desert
-
-   offset coordinates
-*/
-var Globals = {
-   terrains : [1,2,3,4,5],
-   edgeLabels : ['N', 'W', 'S'],
-   vertexLabels : ['N', 'S'],
-};
-
-
-var LogicalBoard = function (_width, _height) {   
-
-   this.width = _width;
-   this.height = _height;
-
-   this.state = {
-      settlements : [[],[],[],[]],
-      roads : [[],[],[],[]],
-      hands : [[],[],[],[]],
-      baron : null,
-      currentPlayer : 0,
-   };
-
-
-   this.Hex = function (_resource, _roll, _x, _y) {
-      this.resource = _resource;
-      this.roll = _roll;
-
-      this.x = _x;
-      this.y = _y;
-   };
-
-   this.Hex.prototype = {
-      getResource : function () {
-         return this.resource;
-      },
-      getRoll : function() {
-         return this.roll;
-      }
-   };
-
-   this.init.apply(this, arguments);
-};
-
-LogicalBoard.prototype = {
-   init : function (width, height) {
-      var row, terrain;
-      for(i = 0; i < height; i++) {
-         row = [];
-         for(j = 0; j < width; j++) {
-            terrain = Math.floor(Math.random() * Globals.terrains.length);
-            row.push(new this.Hex(terrain, j+i));
-         }
-
-         this.grid.push(row);
-      }      
-   },
-
-   getHex : function (_x, _y) {
-      return this.grid[_y][_x];
-   },
-
-   getHexEdges : function (_x, _y) {
-      return [
-         [_x, _y, 'N'],
-         [_x, _y, 'W'],
-         [_x, _y, 'S'],
-      ];
-   },
-
-   getHexVertices : function (_x, _y) {
-      return [
-         [_x, _y, 'N'],
-         [_x, _y, 'S'],
-      ];
-   },
-
-// relations
-// based on those presented in http://www-cs-students.stanford.edu/~amitp/game-programming/grids/
-   neighbors : function (face) {
-      var x = face[0], y = face[1];
-      if(y % 2 == 0) {
-         return [
-            [x, y+1],
-            [x, y-1],
-            [x-1, y],
-            [x+1, y],
-            [x-1, y+1],
-            [x-1, y-1],
-         ];
-      }
-      else {
-         return [
-            [x, y+1],
-            [x, y-1],
-            [x-1, y],
-            [x+1, y],
-            [x+1, y+1],
-            [x+1, y-1],
-         ];
-      }
-   },
-
-   borders : function (face) {
-      var x = face[0], y = face[1];
-      if(y % 2 == 0) {
-         return [
-            [x, y, 'N'],
-            [x, y, 'W'],
-            [x, y, 'S'],
-            [x, y-1, 'S'],
-            [x+1, y, 'W'],
-            [x, y+1, 'N'],
-         ];
-      }
-      else {
-         return [
-            [x, y, 'N'],
-            [x, y, 'W'],
-            [x, y, 'S'],
-            [x+1, y-1, 'S'],
-            [x+1, y, 'W'],
-            [x+1, y+1, 'N'],
-         ];
-      }      
-   },
-
-   corners : function (face) {
-      var x = face[0], y = face[1];
-      if(y % 2 == 0) {
-         return [
-            [x, y, 'N'],
-            [x, y, 'S'],
-            [x-1, y-1, 'S'],
-            [x-1, y+1, 'N'],
-            [x+1, y-1, 'S'],
-            [x+1, y+1, 'N'],
-         ];
-      }
-      else {
-         return [
-            [x, y, 'N'],
-            [x, y, 'S'],
-            [x, y-1, 'S'],
-            [x, y+1, 'N'],
-            [x+1, y-1, 'S'],
-            [x+1, y+1, 'N'],
-         ];
-      }     
-   },
-
-   endpoints : function (edge) {
-      var x = edge[0], y = edge[1], label = edge[2];
-      if(label == 'N') {
-         if(y % 2 == 0) 
-            return [[x, y, 'N'], [x-1, y-1, 'S']];
-         else
-            return [[x, y, 'N'], [x, y-1, 'S']];
-      }
-      else if(label == 'W') {
-         if(y % 2 == 0) 
-            return [[x-1, y+1, 'N'], [x-1, y-1, 'S']];
-         else
-            return [[x, y+1, 'N'], [x, y-1, 'S']];
-      }
-      else if(label == 'S') {
-         if(y % 2 == 0) 
-            return [[x, y, 'S'], [x-1, y+1, 'N']];
-         else
-            return [[x, y, 'S'], [x, y+1, 'N']];
-      }
-
-      return false;
-   },
-
-   touches : function (vertex) {
-      var x = vertex[0], y = vertex[1], label = vertex[2];
-      if(label == 'N') {
-         if(y % 2 == 0)
-            return [[x, y], [x-1, y-1], [x, y-1]];
-         else
-            return [[x, y], [x, y-1], [x+1, y-1]];
-      }
-      else if(label == 'S') {
-         if(y % 2 == 0)
-            return [[x, y], [x-1, y+1], [x, y+1]];
-         else
-            return [[x, y], [x, y+1], [x+1, y+1]];
-      }
-
-     return false; 
-   },
-
-   protrudes : function (vertex) {
-      var x = vertex[0], y = vertex[1], label = vertex[2];
-      if(label == 'N') {
-         if(y % 2 == 0) {
-            return [
-               [x, y, 'N'],
-               [x, y-1, 'W'],
-               [x, y-1, 'S'],
-            ];
-         }
-         else {
-            return [
-               [x, y, 'N'],
-               [x+1, y-1, 'W'],
-               [x+1, y-1, 'S'],
-            ];
-         }
-      }
-      else if(label == 'S') {
-         if(y % 2 == 0) {
-            return [
-               [x, y, 'S'],
-               [x, y+1, 'W'],
-               [x, y+1, 'N'],
-            ];
-         }
-         else {
-            return [
-               [x, y, 'S'],
-               [x+1, y+1, 'W'],
-               [x+1, y+1, 'N'],
-            ];
-         }
-      }      
-   },
-
-   adjacent : function (vertex) {
-      var x = vertex[0], y = vertex[1], label = vertex[2];
-      if(label == 'N') {
-         if(y % 2 == 0) {
-            return [
-               [x, y-2, 'S'],
-               [x-1, y-1, 'S'],
-               [x, y-1, 'S'],
-            ];
-         }
-         else {
-            return [
-               [x, y-2, 'S'],
-               [x, y-1, 'S'],
-               [x+1, y-1, 'S'],
-            ];
-         }
-      }
-      else if(label == 'S') {
-         if(y % 2 == 0) {
-            return [
-               [x, y+2, 'N'],
-               [x-1, y+1, 'N'],
-               [x, y+1, 'N'],
-            ];
-         }
-         else {
-            return [
-               [x, y+2, 'N'],
-               [x, y+1, 'N'],
-               [x+1, y+1, 'N'],
-            ];
-         }
-      }        
-   },
-
-// game-logic
-
-   canBuild : function (build, data) {
-      if(data == null)
-         return false;
-
-      var logic = this;
-      var state = logic.state;
-
-      var intersectEndPts = function (a, b) {
-         var t;
-         if(a.length < b.length) {
-            t = a;
-            a = b;
-            b = t;
-         }
-
-         a_vertices = a.toString();
-         for(i = 0; i < b.length; i++) {
-            b_vertex = b[i].toString();
-            if(a_vertices.indexOf(b_vertex) > -1)
-               return true;
-         }
-         return false;
-      };
-
-      if(build == 'road') {
-         var availableEndPts = $.map(state.roads[state.currentPlayer], function (edge, idx) {
-            return logic.endpoints(edge);
-         });
-         var roadEndPts = this.endpoints(data);
-         return intersectEndPts(availableEndPts, roadEndPts);
-      }
-      else if(build == 'settlement') {
-         var availableEndPts = $.map(state.roads[state.currentPlayer], function (edge, idx) {
-            return logic.endpoints(edge);
-         });
-         var selectedVertex = [data];
-
-         var adjacentVertices = this.adjacent(data);
-
-         var currentSettlements = [].concat.apply([], state.settlements);
-         return (intersectEndPts(availableEndPts, selectedVertex) && !intersectEndPts(currentSettlements, adjacentVertices));
-      }
-      else
-         return false;
-   },   
-}
+var socket = io.connect();
+var gb;
 
 var GraphicalBoard = function (_width, _height) {
    this.grid = [];
@@ -349,7 +35,24 @@ var GraphicalBoard = function (_width, _height) {
       offsetX: this.canvasOffsetX,
       offsetY: this.canvasOffsetY
    });
-   
+
+   var gb = this;
+   // Click bindings
+   this.edgeLayer.on('click', function (evt) {
+      var line = evt.targetNode;
+      var edge = line.getAttr('coords');
+      gb.build('road', line, evt.which==2);
+   });
+
+   this.vertexLayer.on('click', function (evt) {
+      var circle = evt.targetNode;
+      var vertex = circle.getAttr('coords');
+      gb.build('settlement', circle, evt.which==2);
+   });
+
+   this.stage.add(this.hexLayer);
+   this.stage.add(this.edgeLayer);
+   this.stage.add(this.vertexLayer);   
    this.init.apply(this);
 };
 
@@ -486,40 +189,59 @@ GraphicalBoard.prototype = {
          
          this.grid.push(row);
       }
-      // END LOOP OVER GRID
 
+      this.stage.draw();
+   },
 
-      // var logic = this;
-      // edgeLayer.on('click', function (evt) {
-      //    var line = evt.targetNode;
-      //    var edge = line.getAttr('coords');
+   build : function (type, tN, override) {
+      console.log(override);
+      socket.emit('build', {
+         'type': type,
+         coords: tN.getAttr('coords'),
+         'override': override
+      });
+   },
 
-      //    if((evt.which == 1 && logic.canBuild('road', edge)) || evt.which == 2) {
-      //       logic.state.roads[logic.state.currentPlayer].push(edge);
-      //       line.setStroke('red');
-      //       edgeLayer.draw();
-      //    }
-      // });
+   drawRoad : function (edge) {
+      var gridObject = this.grid[edge[1]][edge[0]];
+      var line;
+      for(i = 0; i < gridObject.edges.length; i++) {
+         line = gridObject.edges[i];
+         if(line.getAttr('coords')[2] == edge[2]) {
+            line.setStroke('red');
+            this.edgeLayer.draw();
+            break;
+         }
+      }
+   },
 
-      // vertexLayer.on('click', function (evt) {
-      //    console.log(evt.targetNode);
-      //    var circle = evt.targetNode;
-      //    var vertex = circle.getAttr('coords');
-      //    if((evt.which == 1 && logic.canBuild('settlement', vertex)) || evt.which == 2) {
-      //       logic.state.settlements[logic.state.currentPlayer].push(vertex);
-      //       circle.setFill('red');
-      //       vertexLayer.draw();
-      //    }
-      // });
-
-      this.stage.add(this.hexLayer);
-      this.stage.add(this.edgeLayer);
-      this.stage.add(this.vertexLayer);
+   drawSettlement : function (vertex) {
+      var gridObject = this.grid[vertex[1]][vertex[0]];
+      var circle;
+      for(i = 0; i < gridObject.vertices.length; i++) {
+         circle = gridObject.vertices[i];
+         if(circle.getAttr('coords')[2] == vertex[2]) {
+            circle.setFill('red');
+            this.vertexLayer.draw();
+            break;
+         }
+      }
    },
 };
 
+socket.on('acceptConnection', function (data) {
+   gb = new GraphicalBoard(data.gW,data.gH);
+});
 
-var b;
+socket.on('buildAccept', function (data) {   
+   if(data.type == 'road') {
+      gb.drawRoad(data.coords);
+   }  
+   else if(data.type == 'settlement') {
+      gb.drawSettlement(data.coords);
+   };
+});
+
 $(function () {
-  b = new GraphicalBoard(6,6);
+   socket.emit('newConnection', {});
 });
