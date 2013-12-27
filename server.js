@@ -423,7 +423,7 @@ io.sockets.on('connection', function (socket) {
 		// console.log(socket.id);
 		if(socket.id != lb.state.players[lb.state.currentPlayer])
 			return;
-		lb.state.currentPlayer = ++lb.state.currentPlayer % (Globals.playerData.length - 1);
+		lb.state.currentPlayer = ++lb.state.currentPlayer % Globals.playerData.length;
 		io.sockets.emit('nextTurn', {currentPlayer: lb.state.currentPlayer});
 	});
 });

@@ -250,10 +250,14 @@ GraphicalBoard.prototype = {
    //lobby-drawing
     updatePlayers : function function_name (argument) {
         var players = $('#players');
-        console.log(this);
         for(var key in this.state.players) {
-            players.find('#p'+key)
+            var playerDom = players.find('#p'+key)
                 .text(this.state.players[key]);
+
+            if(key == this.state.currentPlayer) {
+                players.find('li').css('font-weight', 'normal');
+                playerDom.css('font-weight', 'bold');
+            }
         }
    },
 };
@@ -275,6 +279,7 @@ socket.on('buildAccept', function (data) {
 
 socket.on('nextTurn', function (data) {
    gb.state.currentPlayer = data.currentPlayer;
+   gb.updatePlayers();
 });
 
 socket.on('players', function (data) {
