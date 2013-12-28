@@ -88,6 +88,11 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
         }
     });
 
+    this.handLayer.on('click', function (evt) {
+        var card = evt.targetNode;
+        card.setAttr('selected', !card.getAttr('selected'));
+    });
+
     this.playerLayer.on('click', function (evt) {
         var wedge = evt.targetNode;
         var pnum = wedge.getAttr('player_num');
@@ -379,6 +384,13 @@ GraphicalBoard.prototype = {
           gb.playerLayer.setListening(false);
           gb.drawHit();
         }
+        else if(gb.state.baronState == 3) { // wait for other players
+          gb.hexLayer.setListening(false);
+          gb.edgeLayer.setListening(false);
+          gb.vertexLayer.setListening(false);
+          gb.playerLayer.setListening(false);    
+          gb.drawHit();      
+        }
       }
     },
 
@@ -467,7 +479,24 @@ GraphicalBoard.prototype = {
                 fill: Globals.terrainTypes[hand[i]],
                 stroke: 'black',
                 strokeWidth: 2,
+                resource: hand[i],
+                selected: false,
             });
+
+            box.on('mouseover', function (evt) {
+              if(!this.getAttr('selected')) {
+                this.move(0, -10);
+                gb.handLayer.draw();
+              }
+            });
+
+            box.on('mouseout', function (evt) {
+                if(!this.getAttr('selected')) {
+                  this.move(0, 10);
+                  gb.handLayer.draw();
+                }
+            });
+                  
             group.add(box);
        }
        group.setOffsetX((hand.length+1)*this.cardWidth/4);
@@ -569,7 +598,10 @@ var Log = function () {
     this.logTypes = ['GAME', 'LOBBY'];
 
     this.log = function (code, message) {
-        $('<p><span class="code">['+this.logTypes[code]+']</span> '+message+'</p>').appendTo($('#log'));
+        var logarea = $('#log');
+        if(logarea.children().length > 25)
+            logarea.empty();
+        $('<p><span class="code">['+this.logTypes[code]+']</span> '+message+'</p>').appendTo(logarea);
     };
 };
 
@@ -615,6 +647,16 @@ socket.on('moveBaron', function (data) {
     gb.drawBaron();
 });
 
+socket.on('overflowNotice', function (data) {
+    gb.state.baronState = data.baronState;
+    gb.stateChange();
+});
+socket.on('overflowWait', function (data) {
+    gb.state.baronState = data.baronState;
+    gb.stateChange();
+});
+
+
 socket.on('distributeResources', function (data) {
     // data.cardsAdded
     gb.state.hands = data.hands;
@@ -626,8 +668,11 @@ socket.on('deduct', function (data) {
     gb.state.hands[gb.player_num] = data.hand;
     if(data.action == 'build')
         log.log(0, 'You have lost resources from building.');
-    else(data.action == 'steal')
+    else if(data.action == 'steal')
         log.log(0, 'You have had some of your resources stolen.');
+    else if(data.action == 'overflow')
+        log.log(0, 'You have handed over your overflow resources.');
+    gb.drawHand();  
 });
 
 socket.on('buildAccept', function (data) {  
@@ -641,7 +686,6 @@ socket.on('buildAccept', function (data) {
         gb.drawCity(data.coords);
     }
     log.log(0, 'Player ' + (gb.state.currentPlayer + 1) + ' has built a ' + data.type + '@' + data.coords);
-    gb.drawHand();
 });
 
 socket.on('nextTurn', function (data) {
@@ -661,5 +705,16 @@ $(function () {
 
    $('#giveResource').click(function (evt) {
        socket.emit('giveResource', {resource: parseInt($('#resource').val())});
-   })
+   });
+
+   $('#discard').click(function (evt) {
+      var cardsDiscard = [];
+      gb.handLayer.getChildren()[0].getChildren().each(function (card, idx) {
+          if(card.getAttr('selected'))
+            cardsDiscard.push(card.getAttr('resource'));
+      });
+      socket.emit('overflowResolve', {
+          cardsDiscard: cardsDiscard,
+      });
+   });
 });

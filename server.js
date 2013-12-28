@@ -397,6 +397,7 @@ LogicalBoard.prototype = {
 		else if(type == 'city') {
 			return deduct(hand, [3, 3, 2, 2, 2]);
 		}
+		else return deduct;	// do it yourself
 	},
 
 	roll : function () {
@@ -447,12 +448,36 @@ LogicalBoard.prototype = {
 			io.sockets.emit('distributeResources', { cardsAdded : cardsAdded, hands : lb.state.hands });
 		};
 
-		var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
+		// var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
+		var dice = [1,6];
 		io.sockets.emit('roll', { roll: dice[0]+dice[1] });
 		// robber baron
 		if(dice[0]+dice[1] == 7) {
-			lb.state.baronState = 1;
-			io.sockets.socket(lb.state.players[lb.state.currentPlayer]).emit('promptBaronMove', {baronState: lb.state.baronState});
+			lb.state.baronState = 3;
+			// send overflow notices
+			for(var p = 0; p < Globals.playerData.length; p++) {
+				if(lb.state.hands[p].length >= Globals.overflowHandSize) {
+					io.sockets.socket(lb.state.players[p])
+						.emit('overflowNotice', {baronState: lb.state.baronState});
+					lb.state.overflowPlayers.push(p);
+				}
+			}
+
+			if(lb.state.overflowPlayers.length == 0) {	// if no overflows, then we can move on
+				// prompt current player to move baron
+				lb.state.baronState = 1;
+				io.sockets.socket(lb.state.players[lb.state.currentPlayer])
+					.emit('promptBaronMove', {baronState: lb.state.baronState});
+			}
+			else {	// push waits to other players
+				for(var p = 0; p < Globals.playerData.length; p++) {
+					if(lb.state.overflowPlayers.indexOf(p) == -1) {
+						io.sockets.socket(lb.state.players[p])
+							.emit('overflowWait', {baronState: lb.state.baronState});
+					}
+				}
+			}
+
 		}
 		else
 			distributeResources(dice[0]+dice[1]);
@@ -479,7 +504,9 @@ LogicalBoard.prototype = {
 		var robbableVertices = lb.corners(lb.state.baron);
 		var robbablePlayers = [];
 		for(var p = 0; p < Globals.playerData.length; p++) {
-			if(intersectEndPts(robbableVertices, lb.state.settlements[p]) && lb.state.hands[p].length > 0)
+			if( intersectEndPts(robbableVertices, lb.state.settlements[p]) &&
+				lb.state.hands[p].length > 0 &&
+				p != lb.state.currentPlayer)
 				robbablePlayers.push(p);
 		}
 
@@ -601,6 +628,37 @@ io.sockets.on('connection', function (socket) {
 		}
 	});
 
+	socket.on('overflowResolve', function (data) {
+		if(lb.state.baronState != 3)
+			return;
+
+		var deduct = lb.canAfford('nothingyouveseenbefore');
+		for(var p = 0; p < Globals.playerData.length; p++) {
+			if(lb.state.players[p] == socket.id) {
+				if(lb.state.overflowPlayers.indexOf(p) == -1)	// no need to discard
+					return;
+				var newHand = deduct(lb.state.hands[p].slice(0), data.cardsDiscard);
+				if(newHand && newHand.length <= Math.floor(lb.state.hands[p].length/2)) {
+					lb.state.hands[p] = newHand;
+					lb.state.overflowPlayers.splice(lb.state.overflowPlayers.indexOf(p), 1);
+
+					socket.emit('deduct', {
+						action: 'overflow',
+						hand: newHand,
+					});
+				}
+				break;
+			}
+		}
+
+		if(!lb.state.overflowPlayers.length) {	// if there's no more remaining to check, move on
+			// prompt current player to move baron
+			lb.state.baronState = 1;
+			io.sockets.socket(lb.state.players[lb.state.currentPlayer])
+				.emit('promptBaronMove', {baronState: lb.state.baronState});
+		}
+	});
+
 	// Building handler
 	socket.on('buildRequest', function (data) {
 		// make sure request is during this user's turn
@@ -637,7 +695,7 @@ io.sockets.on('connection', function (socket) {
 	});
 
 	socket.on('endTurn', function (data) {
-		if(socket.id != lb.state.players[lb.state.currentPlayer])
+		if(socket.id != lb.state.players[lb.state.currentPlayer] || lb.state.baronState != 0)	// don't end while waiting
 			return;
 
 		// player order goes 0,1,2,3,2,1,0 to place settlements and roads
