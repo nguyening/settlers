@@ -473,7 +473,7 @@ LogicalBoard.prototype = {
 				for(var p = 0; p < Globals.playerData.length; p++) {
 					if(lb.state.overflowPlayers.indexOf(p) == -1) {
 						io.sockets.socket(lb.state.players[p])
-							.emit('overflowWait', {baronState: lb.state.baronState});
+							.emit('overflowWait', {baronState: lb.state.baronState, overflowPlayers: lb.state.overflowPlayers});
 					}
 				}
 			}
@@ -577,7 +577,9 @@ io.sockets.on('connection', function (socket) {
 
 	// Robber baron handlers
 	socket.on('requestBaronMove', function (data) {
-		if(socket.id != lb.state.players[lb.state.currentPlayer] && lb.state.baronState != 1)
+		if( socket.id != lb.state.players[lb.state.currentPlayer] && 
+			lb.state.baronState != 1 &&
+			lb.state.baron[0] != data.coords[0] && lb.state.baron[1] != data.coords[1])
 			return;
 		lb.state.baron = data.coords;
 		io.sockets.emit('moveBaron', {
@@ -730,7 +732,7 @@ io.sockets.on('connection', function (socket) {
 	// admin/debugging
 
 	socket.on('giveResource', function (data) {
-		if(data.resource == 5)	// shouldn't give desert
+		if(data.resource >= 5 || data.resource < 0)	// shouldn't invalid resources
 			return;
 
 		var p = Array.apply(null, {length: Globals.playerData.length}).map(function(el, i) {return lb.state.players[i]})

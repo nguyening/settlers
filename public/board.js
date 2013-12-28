@@ -67,6 +67,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
       socket.emit('requestBaronMove', {
         coords: hex.getAttr('coords'),
       });
+      log.log(0, '> MOVE BARON '+hex.getAttr('coords'));
     })
 
     this.edgeLayer.on('click', function (evt) {
@@ -101,6 +102,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
 
         if(gb.state.baronState == 2) {
           socket.emit('requestBaronSteal', {player_num: pnum});
+          log.log(0, '> STEAL FROM '+pnum);
         }
         // TODO: add trading
         // else if(this.state.trading)
@@ -591,17 +593,22 @@ GraphicalBoard.prototype = {
          'type': type,
          'coords': coords
       });
+      log.log(0, '> BUILD '+type+'@'+coords);
    },
 };
 
 var Log = function () {
-    this.logTypes = ['GAME', 'LOBBY'];
+    this.logTypes = ['SELF', 'GAME', 'LOBBY'];
 
     this.log = function (code, message) {
         var logarea = $('#log');
         if(logarea.children().length > 25)
             logarea.empty();
-        $('<p><span class="code">['+this.logTypes[code]+']</span> '+message+'</p>').appendTo(logarea);
+        if(code == -1) {
+          $('<p>===================================================================</p>').appendTo(logarea);
+        }
+        else
+          $('<p><span class="code">['+this.logTypes[code]+']</span> '+message+'</p>').appendTo(logarea);
     };
 };
 
@@ -617,43 +624,53 @@ socket.on('players', function (data) {
     gb.state.players = data.players;
     gb.updatePlayers();
     if(data.reason == 'DROP')
-        log.log(1, 'Player '+(data.player_num+1)+' ('+data.player+') has left the game.');
+        log.log(2, 'Player '+(data.player_num+1)+' ('+data.player+') has left the game.');
     else if(data.reason == 'NEW')
-        log.log(1, data.player+' has joined as Player '+(parseInt(data.player_num)+1));
+        log.log(2, data.player+' has joined as Player '+(parseInt(data.player_num)+1));
     else 
-        log.log(1, 'Lobby has been updated.');
+        log.log(2, 'Lobby has been updated.');
 });
 
 socket.on('roll', function (data) {
-    log.log(0, 'Player '+(gb.state.currentPlayer+1)+' has rolled a '+data.roll+'.');
+    log.log(1, 'Player '+(gb.state.currentPlayer+1)+' has rolled a '+data.roll+'.');
 });
 
 // Baron
 socket.on('promptBaronMove', function (data) {
     gb.state.baronState = data.baronState;
     gb.stateChange();
+    log.log(0, 'BARON PHASE: You need to move the baron to a new tile.');
 });
 socket.on('promptBaronSteal', function (data) {
     gb.state.baronState = data.baronState;
+    // data.robbablePlayers;
     gb.stateChange();
+    log.log(0, 'BARON PHASE: Select a player whose settlement(s) are on that tile to steal from.');
 });
 socket.on('baronFinish', function (data) {
     gb.state.baronState = data.baronState;
     gb.stateChange();
+    log.log(0, 'BUILD PHASE: You can now build settlements or roads.');
 });
 
 socket.on('moveBaron', function (data) {
     gb.state.baron = data.coords;
     gb.drawBaron();
+    log.log(1, 'BARON PHASE: The baron has been moved!');
 });
 
 socket.on('overflowNotice', function (data) {
     gb.state.baronState = data.baronState;
     gb.stateChange();
+    log.log(1, 'BARON PHASE: You have more than '+Globals.overflowHandSize+' resources in your hand. You must discard half of them.');
 });
 socket.on('overflowWait', function (data) {
+    var overflows = data.overflowPlayers.map(function (el) {
+      return (el+1);
+    });
     gb.state.baronState = data.baronState;
     gb.stateChange();
+    log.log(1, 'BARON PHASE: Waiting on players to discard half of their hands..('+overflows+')');
 });
 
 
@@ -661,17 +678,17 @@ socket.on('distributeResources', function (data) {
     // data.cardsAdded
     gb.state.hands = data.hands;
     gb.drawHand();
-    log.log(0, 'Resources have been distributed for the roll.');
+    log.log(1, 'ROLL PHASE: Resources have been distributed for the roll.');
 });
 
 socket.on('deduct', function (data) {
     gb.state.hands[gb.player_num] = data.hand;
     if(data.action == 'build')
-        log.log(0, 'You have lost resources from building.');
+        log.log(0, 'BUILD PHASE: You have lost resources from building.');
     else if(data.action == 'steal')
-        log.log(0, 'You have had some of your resources stolen.');
+        log.log(0, 'BARON PHASE: You have had some of your resources stolen.');
     else if(data.action == 'overflow')
-        log.log(0, 'You have handed over your overflow resources.');
+        log.log(0, 'BARON PHASE: You have handed over your overflow resources.');
     gb.drawHand();  
 });
 
@@ -685,12 +702,21 @@ socket.on('buildAccept', function (data) {
     else if(data.type == 'city') {
         gb.drawCity(data.coords);
     }
-    log.log(0, 'Player ' + (gb.state.currentPlayer + 1) + ' has built a ' + data.type + '@' + data.coords);
+    log.log(1, 'BUILD PHASE: Player ' + (gb.state.currentPlayer + 1) + ' has built a ' + data.type + '@' + data.coords);
 });
 
 socket.on('nextTurn', function (data) {
-    log.log(0, 'Player ' + (gb.state.currentPlayer+1) + ' has ended their turn.');
-    log.log(0, 'Round '+data.round);
+    log.log(1, 'Player ' + (gb.state.currentPlayer+1) + ' has ended their turn.');
+    if(data.round < 2) {
+      if(gb.player_num == Globals.playerData - 1) 
+        log.log(0, 'SETUP PHASE: You are allowed to place two settlements and two roads for free this turn.');
+      else
+        log.log(0, 'SETUP PHASE: You are allowed to place one settlement and one road for free this turn.');
+    }
+    else {
+      log.log(-1);
+      log.log(1, 'Round '+data.round);
+    }
     gb.state.currentPlayer = data.currentPlayer;
     gb.updatePlayers();
     gb.stateChange();
@@ -701,10 +727,13 @@ $(function () {
     socket.emit('grabState', {});
    $('#endTurn').click(function (evt) {
       socket.emit('endTurn', {});
+      log.log(0, '> END TURN');
    });
 
    $('#giveResource').click(function (evt) {
-       socket.emit('giveResource', {resource: parseInt($('#resource').val())});
+        var resType = parseInt($('#resource').val());
+       socket.emit('giveResource', {resource: resType});
+       log.log(0, '> GIVE RESOURCE '+resType);
    });
 
    $('#discard').click(function (evt) {
@@ -716,5 +745,6 @@ $(function () {
       socket.emit('overflowResolve', {
           cardsDiscard: cardsDiscard,
       });
+      log.log(0, '> DISCARD OVERFLOW: '+cardsDiscard);
    });
 });
