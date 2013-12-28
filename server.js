@@ -55,7 +55,9 @@ LogicalBoard.prototype = {
 				else {
 					idx = Math.floor(Math.random() * terrains.length);
 					row.push(new this.Hex(terrains[idx], 7));
-
+					if(terrains[idx] == 5) {
+						this.state.baron = [j, i];
+					}
 					terrains.splice(idx, 1);
 				}
 			}
@@ -420,11 +422,8 @@ LogicalBoard.prototype = {
 			var resources = [];
 			for(var i = 0; i < lb.height; i++) {
 				for(var j = 0; j < lb.width; j++) {
-					if(lb.state.grid[i][j].roll == roll) {
-						if(lb.state.grid[i][j].resource != 5) 
+					if(lb.state.grid[i][j].roll == roll && lb.state.grid[i][j].resource != 5) {
 							resources.push([j, i, lb.state.grid[i][j].resource]);
-						// else {}
-							// baron stuff here
 					}
 				}
 			}
@@ -450,7 +449,41 @@ LogicalBoard.prototype = {
 
 		var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
 		io.sockets.emit('roll', { roll: dice[0]+dice[1] });
-		distributeResources(dice[0]+dice[1]);
+		// robber baron
+		if(dice[0]+dice[1] == 7) {
+			lb.state.baronState = 1;
+			io.sockets.socket(lb.state.players[lb.state.currentPlayer]).emit('promptBaronMove', {baronState: lb.state.baronState});
+		}
+		else
+			distributeResources(dice[0]+dice[1]);
+	},
+
+	robbablePlayers : function () {
+		var intersectEndPts = function (a, b) {
+			var t;
+			if(a.length < b.length) {
+				t = a;
+				a = b;
+				b = t;
+			}
+
+			a_vertices = a.toString();
+			for(var i = 0; i < b.length; i++) {
+				b_vertex = b[i].toString();
+				if(a_vertices.indexOf(b_vertex) != -1)
+					return true;
+				}
+			return false;
+		};
+
+		var robbableVertices = lb.corners(lb.state.baron);
+		var robbablePlayers = [];
+		for(var p = 0; p < Globals.playerData.length; p++) {
+			if(intersectEndPts(robbableVertices, lb.state.settlements[p]) && lb.state.hands[p].length > 0)
+				robbablePlayers.push(p);
+		}
+
+		return robbablePlayers;
 	},
 
 	// lobby-logic
@@ -515,6 +548,60 @@ io.sockets.on('connection', function (socket) {
 		});
 	});
 
+	// Robber baron handlers
+	socket.on('requestBaronMove', function (data) {
+		if(socket.id != lb.state.players[lb.state.currentPlayer] && lb.state.baronState != 1)
+			return;
+		lb.state.baron = data.coords;
+		io.sockets.emit('moveBaron', {
+			coords: lb.state.baron,
+		});
+
+		var robbablePlayers = lb.robbablePlayers();
+		if(robbablePlayers.length > 0) {
+			lb.state.baronState = 2;
+			socket.emit('promptBaronSteal', {
+				baronState: lb.state.baronState,
+				robbable: robbablePlayers,
+			});
+		}
+		else {
+			lb.state.baronState = 0;
+			socket.emit('baronFinish', {baronState: lb.state.baronState});
+		}
+	});
+
+	socket.on('requestBaronSteal', function (data) {
+		if(socket.id != lb.state.players[lb.state.currentPlayer] && lb.state.baronState != 2)
+			return;
+		if(lb.robbablePlayers().indexOf(data.player_num) != -1) {
+			var oppHand = lb.state.hands[data.player_num];
+			var myHand = lb.state.hands[lb.state.currentPlayer];
+
+			var i = Math.floor(Math.random()*oppHand.length);
+			myHand.push(oppHand[i]);
+			
+			var cardsAdded = Globals.defaultState.hands.slice(0);
+			cardsAdded[lb.state.currentPlayer] = [oppHand[i]];
+
+			oppHand.splice(i, 1);
+
+
+			io.sockets.socket(lb.state.players[data.player_num]).emit('deduct', {
+				action: 'steal',
+				hand: oppHand,
+			});
+			io.sockets.emit('distributeResources', {
+				cardsAdded : cardsAdded,
+				hands : lb.state.hands,
+			});
+
+			lb.state.baronState = 0;
+			socket.emit('baronFinish', {baronState: lb.state.baronState});
+		}
+	});
+
+	// Building handler
 	socket.on('buildRequest', function (data) {
 		// make sure request is during this user's turn
 		if(socket.id != lb.state.players[lb.state.currentPlayer])

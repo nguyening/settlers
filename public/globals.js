@@ -7,6 +7,7 @@ Globals.terrainTypes = ['brown', 'chartreuse', 'grey', 'gold', 'forestgreen', 'w
 Globals.edgeLabels = ['N', 'W', 'S'];
 Globals.vertexLabels = ['N', 'S'];
 Globals.playerData = [['red'], ['blue'], ['yellow'], ['white']];
+Globals.baronStates = ['inactive', 'moving', 'stealing'];
 Globals.defaultState = {
     grid : [],
     players : {0:null, 1:null, 2:null, 3:null},
@@ -16,6 +17,7 @@ Globals.defaultState = {
     roads : [[],[],[],[]],
     hands : [[],[],[],[]],
     baron : null,
+    baronState : 0,
     currentPlayer : 0,
 };
 

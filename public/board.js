@@ -1,6 +1,5 @@
 var socket = io.connect();
 var gb, log;
-
 var GraphicalBoard = function (_width, _height, _state, sessid) {
     //czech http://stackoverflow.com/a/18949651/1487756
     this.player_num = Array.apply(null, {length : Globals.playerData.length})
@@ -22,7 +21,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
 
     this.cardWidth = 50;
     this.cardHeight = 100;
-    this.cardBaseY = 500;
+    this.cardBaseY = 520;
 
     this.offsetX = this.hexRadius/4;
     this.offsetY = 0;
@@ -45,10 +44,31 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
         offsetX : this.offsetX,
         offsetY : this.offsetY,
     });
-    this.handLayer = new Kinetic.Layer();
+    this.handLayer = new Kinetic.Layer({
+        offsetX : -this.canvasWidth/2,
+        offsetY : -this.cardBaseY,
+    });
+    this.playerLayer = new Kinetic.Layer();
+
+    this.baron = new Kinetic.RegularPolygon({
+        x: 0,
+        y: 0,
+        sides: 6,
+        visible: false,
+        radius: this.hexRadius/4,
+        fill: 'black',
+    });
+    this.vertexLayer.add(this.baron);
 
     var gb = this;
     // Click bindings
+    this.hexLayer.on('click', function (evt) {
+      var hex = evt.targetNode.getParent();   // text and hexagon are both in a group
+      socket.emit('requestBaronMove', {
+        coords: hex.getAttr('coords'),
+      });
+    })
+
     this.edgeLayer.on('click', function (evt) {
         var line = evt.targetNode;
         var edge = line.getAttr('coords');
@@ -68,9 +88,23 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
         }
     });
 
+    this.playerLayer.on('click', function (evt) {
+        var wedge = evt.targetNode;
+        var pnum = wedge.getAttr('player_num');
+        if(pnum == gb.player_num) // no interactions for self
+            return;
+
+        if(gb.state.baronState == 2) {
+          socket.emit('requestBaronSteal', {player_num: pnum});
+        }
+        // TODO: add trading
+        // else if(this.state.trading)
+    });
+
     this.stage.add(this.hexLayer);
     this.stage.add(this.edgeLayer);
     this.stage.add(this.vertexLayer);   
+    this.stage.add(this.playerLayer);
     this.stage.add(this.handLayer);
     this.init.apply(this, [this.state]);
 };
@@ -78,7 +112,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
 GraphicalBoard.prototype = {
    init : function (state) {
       var gridObject;
-      var hex, line, circle, edge_vertices, edge, vertices, vertex;
+      var hexGroup, hex, line, circle, text, edge_vertices, edge, vertices, vertex;
       var _x, _y, x_offset, y_offset, coords;
 
       var gb = this;
@@ -106,27 +140,54 @@ GraphicalBoard.prototype = {
 
 
             if(!Globals.isUnusedFace([j, i])) {
+                hexGroup = new Kinetic.Group({x:_x, y:_y, coords: [j, i]});
                 // Draw hexagon face
                 hex = new Kinetic.RegularPolygon({
-                   x: _x,
-                   y: _y,
+                   x: 0,
+                   y: 0,
                    sides: 6,
                    radius: hexRadius,
                    fill: Globals.terrainTypes[state.grid[i][j].resource],
                 });
 
-                gridObject.face = hex;
-                this.hexLayer.add(hex);
-
-                var text = new Kinetic.Text({
-                   x: _x-3,
-                   y: _y-3,
+                text = new Kinetic.Text({
+                   x: 0,
+                   y: 0,
                    text: ''+state.grid[i][j].roll,
                    fontSize: 12,
                    fontFamily: 'Calibri',
                    fill: 'black',
                 });
-                this.hexLayer.add(text);
+                // centering text
+                text.setOffset({
+                  x: text.getWidth()/2,
+                  y: text.getHeight()/2,
+                });
+
+                hexGroup.add(hex);
+                hexGroup.add(text);
+
+                hexGroup.on('mouseover', function () {
+                    var tempBaron = new Kinetic.RegularPolygon({
+                        x: this.getAttr('x'),
+                        y: this.getAttr('y'),
+                        sides: 6,
+                        radius: gb.hexRadius/4,
+                        fill: 'black',
+                        opacity: 0.5,
+                    });
+                    gb.baron.setAttr('tempBaron', tempBaron);
+                    gb.vertexLayer.add(tempBaron);
+                    gb.vertexLayer.draw();
+                });
+
+                hexGroup.on('mouseout', function () { // mouseout to prevent bubbling
+                    gb.baron.getAttr('tempBaron')
+                      .remove();
+                    gb.vertexLayer.draw();
+                });
+                gridObject.face = hexGroup;
+                this.hexLayer.add(hexGroup);
             }
 
             // Drawing hexagon edges (N, W, S)
@@ -177,19 +238,18 @@ GraphicalBoard.prototype = {
                   'coords': coords,
                });
 
+               // only bind interactions to edges that haven't been built on yet
                if(color == defaultEdgeStroke) {
                    // Edge hover interactions
                    line.on('mouseover', function () {
-                        if( (gb.state.currentPlayer != gb.player_num) || // if it isn't your turn, don't show effects
-                            (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('') != Globals.playerData[gb.player_num][0]))
+                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != Globals.playerData[gb.player_num][0]) )
                             return;
                       this.setStrokeWidth(hexEdgeThickness*5);
                       gb.edgeLayer.draw();
                    });
 
                    line.on('mouseleave', function () {
-                        if( (gb.state.currentPlayer != gb.player_num) ||
-                            (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('') != Globals.playerData[gb.player_num][0]))
+                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != Globals.playerData[gb.player_num][0]) )
                             return;
                       this.setStrokeWidth(hexEdgeThickness);
                       gb.edgeLayer.draw();
@@ -246,8 +306,7 @@ GraphicalBoard.prototype = {
                    });
 
                    circle.on('mouseover', function () {
-                        if( (gb.state.currentPlayer != gb.player_num) ||
-                            (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.player_num][0]))
+                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.player_num][0]) )
                             return;
                         this.setAttrs({
                             opacity: 1,
@@ -259,8 +318,7 @@ GraphicalBoard.prototype = {
                    });
 
                    circle.on('mouseleave', function () {
-                        if( (gb.state.currentPlayer != gb.player_num) ||
-                            (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.player_num][0]))
+                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.player_num][0]) )
                             return;
                         this.setAttrs({
                             opacity: (this.getAttr('fill') == defaultVertexFill) ? 0 : 1,
@@ -282,42 +340,156 @@ GraphicalBoard.prototype = {
          this.grid.push(row);
       }
 
+      this.drawBaron();
+
+      // Other UI
+      this.drawPlayers();
       this.drawHand();
       this.stage.draw();
-   },
+    },
 
-   drawHand : function () {
+    stateChange : function () {
+      if( (gb.state.currentPlayer != gb.player_num) ) {
+        gb.hexLayer.setListening(false);
+        gb.edgeLayer.setListening(false);
+        gb.vertexLayer.setListening(false);
+        gb.playerLayer.setListening(false);
+        gb.drawHit();
+      }
+      else {
+        if(gb.state.baronState == 1) {
+          gb.hexLayer.setListening(true);
+          gb.edgeLayer.setListening(false);
+          gb.vertexLayer.setListening(false);
+          gb.playerLayer.setListening(false);
+          gb.drawHit();
+        }
+        else if(gb.state.baronState == 2) {
+          gb.hexLayer.setListening(false);
+          gb.edgeLayer.setListening(false);
+          gb.vertexLayer.setListening(false);
+          gb.playerLayer.setListening(true);
+          gb.drawHit();
+        }
+        else if(gb.state.baronState == 0) {
+          gb.hexLayer.setListening(false);
+          gb.edgeLayer.setListening(true);
+          gb.vertexLayer.setListening(true);
+          // TODO: if trading, listen on player layer
+          gb.playerLayer.setListening(false);
+          gb.drawHit();
+        }
+      }
+    },
+
+    drawHit : function () {
+      this.hexLayer.drawHit();
+      this.edgeLayer.drawHit();
+      this.vertexLayer.drawHit();
+      this.playerLayer.drawHit();
+    },
+
+    drawPlayers : function () {
+      var player;
+      var shapes = [{
+          x: 0,
+          y: 0,
+          radius: 75,
+          angleDeg: 90,
+          fill: 'green',
+        }, 
+        {
+          x: this.canvasWidth+15,
+          y: 0,
+          radius: 75,
+          angleDeg: 90,
+          rotationDeg: 90,
+          fill: 'green',
+        }, 
+        {
+          x: 0,
+          y: this.canvasWidth,
+          radius: 75,
+          angleDeg: 90,
+          rotationDeg: -90,
+          fill: 'green'
+        }, 
+        {
+          x: this.canvasWidth,
+          y: this.canvasWidth,
+          radius: 75,
+          angleDeg: 90,
+          rotationDeg: 180,
+          fill: 'green'
+        }, 
+
+        ];
+
+      for(var p = 0; p < Globals.playerData.length; p++) {
+        player = new Kinetic.Wedge(shapes[p]);
+        player.setAttr('fill', Globals.playerData[p][0]);
+        player.setAttr('player_num', p);
+        if(p != this.player_num) {   
+          player.on('mouseover', function () {
+              this.setScale(1.5);
+              gb.playerLayer.draw();
+          });
+          player.on('mouseleave', function () {
+              this.setScale(1);
+              gb.playerLayer.draw();
+          });
+        }
+        this.playerLayer.add(player);
+      }
+    },
+
+    drawBaron : function () {
+        var coords = this.state.baron;
+        var hex = this.grid[coords[1]][coords[0]].face;
+        this.baron.setAttrs({
+          x: hex.getAttr('x'),
+          y: hex.getAttr('y'),
+          visible: true,
+        })
+        this.vertexLayer.draw();
+    },
+
+    drawHand : function () {
        this.handLayer.removeChildren();
+       var group = new Kinetic.Group({x:0, y:0});
        var box, hand = this.state.hands[this.player_num];
        for(var i = 0; i < hand.length; i++) {
             box = new Kinetic.Rect({
-                x: i* this.cardWidth/2,
-                y: this.cardBaseY,
+                x: i*this.cardWidth/2,
+                y: 0,
                 width: this.cardWidth,
                 height: this.cardHeight,
                 fill: Globals.terrainTypes[hand[i]],
                 stroke: 'black',
                 strokeWidth: 2,
             });
-            this.handLayer.add(box);
+            group.add(box);
        }
+       group.setOffsetX((hand.length+1)*this.cardWidth/4);
+       this.handLayer.add(group);
        this.handLayer.draw();
-   },
+    },
 
-   drawRoad : function (edge) {
+    drawRoad : function (edge) {
       var gridObject = this.grid[edge[1]][edge[0]];
       var line;
       for(var i = 0; i < gridObject.edges.length; i++) {
          line = gridObject.edges[i];
          if(line.getAttr('coords')[2] == edge[2]) {
             line.setStroke(Globals.playerData[this.state.currentPlayer][0]);
+            // line.setListening(false);
             this.edgeLayer.draw();
             break;
          }
       }
-   },
+    },
 
-   drawSettlement : function (vertex) {
+    drawSettlement : function (vertex) {
       var gridObject = this.grid[vertex[1]][vertex[0]];
       var circle;
       for(var i = 0; i < gridObject.vertices.length; i++) {
@@ -356,7 +528,7 @@ GraphicalBoard.prototype = {
     },
 
    //lobby-drawing
-    updatePlayers : function function_name (argument) {
+    updatePlayers : function function_name () {
         var players = $('#players');
         for(var key in this.state.players) {
             var playerDom = players.find('#p'+key)
@@ -367,6 +539,22 @@ GraphicalBoard.prototype = {
                 playerDom.css('font-weight', 'bold');
             }
         }
+
+        gb.playerLayer.getChildren().each(function (node, i) {
+          if(parseInt(node.getAttr('player_num')) == gb.state.currentPlayer) {
+            node.setAttrs({
+              stroke: 'black',
+              strokeWidth: 3,
+            });
+          }
+          else {
+            node.setAttrs({
+              stroke: null,
+              strokeWidth: 0,
+            });
+          }
+        });   
+        gb.playerLayer.draw();
    },
 
   build : function (type, coords) {
@@ -389,7 +577,8 @@ socket.on('state', function (data) {
     gb = new GraphicalBoard(data.gW, data.gH, data.state, data.sessid);
     gb.updatePlayers();
     log = new Log();
-    log.log('GAME', 'You ('+data.sessid+') have joined the game.');
+    log.log(0, 'You ('+data.sessid+') have joined the game.');
+    gb.stateChange();
 });
 
 socket.on('players', function (data) {
@@ -398,13 +587,32 @@ socket.on('players', function (data) {
     if(data.reason == 'DROP')
         log.log(1, 'Player '+(data.player_num+1)+' ('+data.player+') has left the game.');
     else if(data.reason == 'NEW')
-        log.log(1, data.player+' has joined as Player '+(data.player_num+1));
+        log.log(1, data.player+' has joined as Player '+(parseInt(data.player_num)+1));
     else 
         log.log(1, 'Lobby has been updated.');
 });
 
 socket.on('roll', function (data) {
     log.log(0, 'Player '+(gb.state.currentPlayer+1)+' has rolled a '+data.roll+'.');
+});
+
+// Baron
+socket.on('promptBaronMove', function (data) {
+    gb.state.baronState = data.baronState;
+    gb.stateChange();
+});
+socket.on('promptBaronSteal', function (data) {
+    gb.state.baronState = data.baronState;
+    gb.stateChange();
+});
+socket.on('baronFinish', function (data) {
+    gb.state.baronState = data.baronState;
+    gb.stateChange();
+});
+
+socket.on('moveBaron', function (data) {
+    gb.state.baron = data.coords;
+    gb.drawBaron();
 });
 
 socket.on('distributeResources', function (data) {
@@ -418,6 +626,8 @@ socket.on('deduct', function (data) {
     gb.state.hands[gb.player_num] = data.hand;
     if(data.action == 'build')
         log.log(0, 'You have lost resources from building.');
+    else(data.action == 'steal')
+        log.log(0, 'You have had some of your resources stolen.');
 });
 
 socket.on('buildAccept', function (data) {  
@@ -431,13 +641,15 @@ socket.on('buildAccept', function (data) {
         gb.drawCity(data.coords);
     }
     log.log(0, 'Player ' + (gb.state.currentPlayer + 1) + ' has built a ' + data.type + '@' + data.coords);
+    gb.drawHand();
 });
 
 socket.on('nextTurn', function (data) {
     log.log(0, 'Player ' + (gb.state.currentPlayer+1) + ' has ended their turn.');
-    // log.log(0, 'Round '+data.round);
+    log.log(0, 'Round '+data.round);
     gb.state.currentPlayer = data.currentPlayer;
     gb.updatePlayers();
+    gb.stateChange();
 });
 
 
