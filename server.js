@@ -6,6 +6,12 @@ var http = require('http'),
 	server = http.createServer(app), 
 	io = require('socket.io').listen(server);
 
+// Disabling web-sockets
+// io.configure(function () { 
+//   io.set("transports", ["xhr-polling"]); 
+//   io.set("polling duration", 10); 
+// }); 
+
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
 app.set("view options", { layout: false });
@@ -639,7 +645,7 @@ io.sockets.on('connection', function (socket) {
 				if(lb.state.overflowPlayers.indexOf(p) == -1)	// no need to discard
 					return;
 				var newHand = deduct(lb.state.hands[p].slice(0), data.cardsDiscard);
-				if(newHand && newHand.length <= Math.floor(lb.state.hands[p].length/2)) {
+				if(newHand && newHand.length <= Math.ceil(lb.state.hands[p].length/2)) {
 					lb.state.hands[p] = newHand;
 					lb.state.overflowPlayers.splice(lb.state.overflowPlayers.indexOf(p), 1);
 

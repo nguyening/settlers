@@ -49,6 +49,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
         offsetY : -this.cardBaseY,
     });
     this.playerLayer = new Kinetic.Layer();
+    this.decoLayer = new Kinetic.Layer();
 
     this.baron = new Kinetic.RegularPolygon({
         x: 0,
@@ -56,9 +57,11 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
         sides: 6,
         visible: false,
         radius: this.hexRadius/4,
+        offsetX: this.offsetX,
+        offsetY: this.offsetY,
         fill: 'black',
     });
-    this.vertexLayer.add(this.baron);
+    this.decoLayer.add(this.baron);
 
     var gb = this;
     // Click bindings
@@ -113,6 +116,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
     this.stage.add(this.vertexLayer);   
     this.stage.add(this.playerLayer);
     this.stage.add(this.handLayer);
+    this.stage.add(this.decoLayer);
     this.init.apply(this, [this.state]);
 };
 
@@ -182,16 +186,18 @@ GraphicalBoard.prototype = {
                         radius: gb.hexRadius/4,
                         fill: 'black',
                         opacity: 0.5,
+                        offsetX: gb.offsetX,
+                        offsetY: gb.offsetY,
                     });
                     gb.baron.setAttr('tempBaron', tempBaron);
-                    gb.vertexLayer.add(tempBaron);
-                    gb.vertexLayer.draw();
+                    gb.decoLayer.add(tempBaron);
+                    gb.decoLayer.draw();
                 });
 
                 hexGroup.on('mouseout', function () { // mouseout to prevent bubbling
                     gb.baron.getAttr('tempBaron')
                       .remove();
-                    gb.vertexLayer.draw();
+                    gb.decoLayer.draw();
                 });
                 gridObject.face = hexGroup;
                 this.hexLayer.add(hexGroup);
@@ -465,7 +471,7 @@ GraphicalBoard.prototype = {
           y: hex.getAttr('y'),
           visible: true,
         })
-        this.vertexLayer.draw();
+        this.decoLayer.draw();
     },
 
     drawHand : function () {
@@ -617,6 +623,7 @@ socket.on('state', function (data) {
     gb.updatePlayers();
     log = new Log();
     log.log(0, 'You ('+data.sessid+') have joined the game as Player '+(gb.player_num+1));
+    log.log(0, 'It is currently Player '+(gb.state.currentPlayer+1)+'\'s turn.');
     gb.stateChange();
 });
 
