@@ -1,3 +1,9 @@
+/*
+   5 types of resources, 2 tiles
+   1 desert
+
+   offset coordinates
+*/
 var Globals = function () {};
 Globals.gridWidth = 6;
 Globals.gridHeight = 7;
@@ -54,3 +60,5 @@ Globals.isUnusedVertex = function (coords) {
             (y > this.gridHeight/2 && (x == 0 || x > this.gridWidth - 2) && label == 'S') ||    // bottom corners diag
             (y < this.gridHeight/2 - 1 && (x == 0 || x > this.gridWidth - 2) && label == 'N');      // top corners diag
 };    
+
+exports.Globals = Globals;

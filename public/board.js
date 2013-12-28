@@ -1,4 +1,5 @@
 var socket = io.connect();
+var Globals = require('./globals.js').Globals;
 var gb, log;
 var GraphicalBoard = function (_width, _height, _state, sessid) {
     //czech http://stackoverflow.com/a/18949651/1487756

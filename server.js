@@ -1,5 +1,5 @@
 // require
-var Globals = require('./globals.js').Globals;
+var Globals = require('./public/globals.js').Globals;
 var jade = require('jade');
 var express = require('express'), app = express();
 var http = require('http'), 
