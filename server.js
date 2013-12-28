@@ -448,8 +448,7 @@ LogicalBoard.prototype = {
 			io.sockets.emit('distributeResources', { cardsAdded : cardsAdded, hands : lb.state.hands });
 		};
 
-		// var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
-		var dice = [1,6];
+		var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
 		io.sockets.emit('roll', { roll: dice[0]+dice[1] });
 		// robber baron
 		if(dice[0]+dice[1] == 7) {
@@ -528,7 +527,7 @@ LogicalBoard.prototype = {
 		for(var key in this.state.players) {
 			if(!this.state.players[key]) {
 				this.state.players[key] = sessId;
-				return key;
+				return parseInt(key);
 			}
 		}
 	},
@@ -537,7 +536,7 @@ LogicalBoard.prototype = {
 		for(var key in this.state.players) {
 			if(this.state.players[key] == sessId) {
 				this.state.players[key] = null;
-				return key;
+				return parseInt(key);
 			}
 		}
 	},
@@ -747,5 +746,11 @@ io.sockets.on('connection', function (socket) {
 			hands: hands,
 		});
 	});
+
+	socket.on('chat', function (data) {
+		var p = Array.apply(null, {length: Globals.playerData.length}).map(function(el, i) {return lb.state.players[i]})
+			.indexOf(socket.id);
+		socket.broadcast.emit('chatMsg', {message: data.message, author: p});
+	})
 });
 

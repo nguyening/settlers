@@ -10,7 +10,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
     this.gridWidth = _width;
     this.gridHeight = _height;
     this.canvasWidth = 500;
-    this.canvasHeight = 700;
+    this.canvasHeight = 600;
     this.hexRadius = 50;
     this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
     this.hexHeight = this.hexRadius*1.5;
@@ -20,7 +20,7 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
     this.defaultEdgeStroke = 'black';
 
     this.cardWidth = 50;
-    this.cardHeight = 100;
+    this.cardHeight = 75;
     this.cardBaseY = 520;
 
     this.offsetX = this.hexRadius/4;
@@ -560,22 +560,22 @@ GraphicalBoard.prototype = {
 
    //lobby-drawing
     updatePlayers : function function_name () {
-        var players = $('#players');
-        for(var key in this.state.players) {
-            var playerDom = players.find('#p'+key)
-                .text(this.state.players[key]);
+        // var players = $('#players');
+        // for(var key in this.state.players) {
+        //     var playerDom = players.find('#p'+key)
+        //         .text(this.state.players[key]);
 
-            if(key == this.state.currentPlayer) {
-                players.find('li').css('font-weight', 'normal');
-                playerDom.css('font-weight', 'bold');
-            }
-        }
+        //     if(key == this.state.currentPlayer) {
+        //         players.find('li').css('font-weight', 'normal');
+        //         playerDom.css('font-weight', 'bold');
+        //     }
+        // }
 
         gb.playerLayer.getChildren().each(function (node, i) {
           if(parseInt(node.getAttr('player_num')) == gb.state.currentPlayer) {
             node.setAttrs({
               stroke: 'black',
-              strokeWidth: 3,
+              strokeWidth: 5,
             });
           }
           else {
@@ -616,7 +616,7 @@ socket.on('state', function (data) {
     gb = new GraphicalBoard(data.gW, data.gH, data.state, data.sessid);
     gb.updatePlayers();
     log = new Log();
-    log.log(0, 'You ('+data.sessid+') have joined the game.');
+    log.log(0, 'You ('+data.sessid+') have joined the game as Player '+(gb.player_num+1));
     gb.stateChange();
 });
 
@@ -626,7 +626,7 @@ socket.on('players', function (data) {
     if(data.reason == 'DROP')
         log.log(2, 'Player '+(data.player_num+1)+' ('+data.player+') has left the game.');
     else if(data.reason == 'NEW')
-        log.log(2, data.player+' has joined as Player '+(parseInt(data.player_num)+1));
+        log.log(2, data.player+' has joined as Player '+(data.player_num+1));
     else 
         log.log(2, 'Lobby has been updated.');
 });
@@ -707,21 +707,25 @@ socket.on('buildAccept', function (data) {
 
 socket.on('nextTurn', function (data) {
     log.log(1, 'Player ' + (gb.state.currentPlayer+1) + ' has ended their turn.');
-    if(data.round < 2) {
-      if(gb.player_num == Globals.playerData - 1) 
-        log.log(0, 'SETUP PHASE: You are allowed to place two settlements and two roads for free this turn.');
-      else
-        log.log(0, 'SETUP PHASE: You are allowed to place one settlement and one road for free this turn.');
-    }
-    else {
-      log.log(-1);
-      log.log(1, 'Round '+data.round);
-    }
     gb.state.currentPlayer = data.currentPlayer;
     gb.updatePlayers();
     gb.stateChange();
+
+    if(data.round < 2 && gb.player_num == gb.state.currentPlayer) {
+        if(gb.player_num == Globals.playerData - 1) 
+          log.log(0, 'SETUP PHASE: You are allowed to place two settlements and two roads for free this turn.');
+        else
+          log.log(0, 'SETUP PHASE: You are allowed to place one settlement and one road for free this turn.');
+    }
+    else if(data.round >= 2){
+      log.log(-1);
+      log.log(1, 'Round '+(data.round-1));
+    }
 });
 
+socket.on('chatMsg', function (data) {
+  log.log(1, 'Player '+(data.author+1)+': '+data.message);
+});
 
 $(function () {
     socket.emit('grabState', {});
@@ -746,5 +750,14 @@ $(function () {
           cardsDiscard: cardsDiscard,
       });
       log.log(0, '> DISCARD OVERFLOW: '+cardsDiscard);
+   });
+
+   $('#dialog').keypress(function (evt) {
+     if(evt.which == 13) {
+      var text = $(this).val();
+      socket.emit('chat', {message: text});
+      log.log(0, 'Player '+(gb.player_num+1)+': '+text);
+      $(this).val('');
+     }
    });
 });

@@ -9,16 +9,11 @@ html
       script(src="./board.js")
       link(rel="stylesheet", href="style.css")
    body
-      div
-         ol#players
-            li#p0
-            li#p1
-            li#p2
-            li#p3
+      div#container
+      div#logger
+         div#log
+         div#chat
+            input#dialog
       div#controls
-         input#resource
-         button#giveResource Spawn Resource
          button#discard Discard Selected Resources
          button#endTurn End Turn
-      div#container
-      div#log

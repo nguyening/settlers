@@ -1,15 +1,27 @@
 
 #container {
-	text-align: center;
-	background-color: darkblue;
 	display: inline-block;
+	background-color: darkblue;
+	text-align: center;
 }
 
-#log {
-	width: 40%;
+#logger {
+	position: relative;
 	display: inline-block;
-	vertical-align: top;
+	margin: 0 10px;
+	width: 40%;
+	height: 600px;
+
 	font-size: 10px;
 	font-family: sans-serif;
-	margin: 0 10px;
+	vertical-align: top;
+}
+
+#chat {
+	position: absolute;
+	bottom: 0;
+}
+
+#dialog {
+	width: 350px;
 }
