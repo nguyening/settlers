@@ -1,7 +1,12 @@
-var socket = io.connect();
 var Globals = require('./lib/globals.js').Globals;
 var State = require('./lib/state.js').State;
+var HexagonGrid = require('./lib/hexgrid.js').HexagonGrid;
+
+var socket = io.connect();
 var gb, log;
+var NUM_PLAYERS = 4;
+var OVERFLOW_HAND_SIZE = 7;
+
 var GraphicalBoard = function (_width, _height, _state) {
     this.state = new State();
     this.state.initializeLocalState(_state);
@@ -11,13 +16,17 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.gridHeight = _height;
     this.canvasWidth = 500;
     this.canvasHeight = 600;
+
     this.hexRadius = 50;
     this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
     this.hexHeight = this.hexRadius*1.5;
     this.hexEdgeThickness = 2;
     this.hexVertexRadius = 8;
+
     this.defaultVertexFill = 'black';
     this.defaultEdgeStroke = 'black';
+    this.terrainColoring = ['brown', 'chartreuse', 'grey', 'gold', 'forestgreen', 'white'];
+    this.playerColoring = ['red', 'blue', 'yellow', 'white'];
 
     this.cardWidth = 50;
     this.cardHeight = 75;
@@ -83,9 +92,6 @@ var GraphicalBoard = function (_width, _height, _state) {
 
     this.vertexLayer.on('click', function (evt) {
         var circle = evt.targetNode;
-        if(!(circle instanceof Kinetic.Circle)) // can't upgrade past a city
-          return;
-
         var vertex = circle.getAttr('coords');
         if(circle.getAttr('fill') != gb.defaultVertexFill) {
             gb.build('city', vertex);
@@ -161,7 +167,7 @@ GraphicalBoard.prototype = {
                    y: 0,
                    sides: 6,
                    radius: hexRadius,
-                   fill: Globals.terrainTypes[state.grid[i][j].resource],
+                   fill: this.terrainColoring[state.grid[i][j].resource],
                 });
 
                 text = new Kinetic.Text({
@@ -219,14 +225,14 @@ GraphicalBoard.prototype = {
 
             for(var k = 0; k < edge_vertices.length - 1; k++) {
                edge = [edge_vertices[k], edge_vertices[k+1]];
-               coords = [j, i, Globals.edgeLabels[k]];
+               coords = [j, i, HexagonGrid.edgeLabels[k]];
                if(Globals.isUnusedEdge(coords))
                   continue;
 
                color = undefined;
-               for(var l = 0; l < Globals.playerData.length; l++) {
+               for(var l = 0; l < NUM_PLAYERS; l++) {
                   if(state.roads[l].toString().indexOf(coords.toString()) != -1) {
-                     color = Globals.playerData[l][0];
+                     color = this.playerColoring[l];
                      break;
                   }
                }
@@ -258,14 +264,14 @@ GraphicalBoard.prototype = {
                if(color == defaultEdgeStroke) {
                    // Edge hover interactions
                    line.on('mouseover', function () {
-                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != Globals.playerData[gb.state.getMyNum()][0]) )
+                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != gb.playerColoring[gb.state.getMyNum()]) )
                             return;
                       this.setStrokeWidth(hexEdgeThickness*5);
                       gb.edgeLayer.draw();
                    });
 
                    line.on('mouseleave', function () {
-                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != Globals.playerData[gb.state.getMyNum()][0]) )
+                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != gb.playerColoring[gb.state.getMyNum()]) )
                             return;
                       this.setStrokeWidth(hexEdgeThickness);
                       gb.edgeLayer.draw();
@@ -281,14 +287,14 @@ GraphicalBoard.prototype = {
             for(var k = 0; k < vertices.length; k++) {
                 city_flag = false;
                vertex = vertices[k];
-               coords = [j, i, Globals.vertexLabels[k]];
+               coords = [j, i, HexagonGrid.vertexLabels[k]];
                 if(Globals.isUnusedVertex(coords))
                     continue;
 
                color = undefined;
-               for(var l = 0; l < Globals.playerData.length; l++) {
+               for(var l = 0; l < NUM_PLAYERS; l++) {
                   if(state.settlements[l].toString().indexOf(coords.toString()) != -1) {
-                     color = Globals.playerData[l][0];
+                     color = this.playerColoring[l];
                       if(state.cities[l].toString().indexOf(coords.toString()) != -1) {
                         city_flag = true;
                       }
@@ -322,7 +328,7 @@ GraphicalBoard.prototype = {
                    });
 
                    circle.on('mouseover', function () {
-                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.state.getMyNum()][0]) )
+                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != gb.playerColoring[gb.state.getMyNum()]) )
                             return;
                         this.setAttrs({
                             opacity: 1,
@@ -334,7 +340,7 @@ GraphicalBoard.prototype = {
                    });
 
                    circle.on('mouseleave', function () {
-                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.state.getMyNum()][0]) )
+                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != gb.playerColoring[gb.state.getMyNum()]) )
                             return;
                         this.setAttrs({
                             opacity: (this.getAttr('fill') == defaultVertexFill) ? 0 : 1,
@@ -448,9 +454,9 @@ GraphicalBoard.prototype = {
 
         ];
 
-      for(var p = 0; p < Globals.playerData.length; p++) {
+      for(var p = 0; p < NUM_PLAYERS; p++) {
         player = new Kinetic.Wedge(shapes[p]);
-        player.setAttr('fill', Globals.playerData[p][0]);
+        player.setAttr('fill', this.playerColoring[p]);
         player.setAttr('player_num', p);
         if(p != this.player_num) {   
           player.on('mouseover', function () {
@@ -487,7 +493,7 @@ GraphicalBoard.prototype = {
                 y: 0,
                 width: this.cardWidth,
                 height: this.cardHeight,
-                fill: Globals.terrainTypes[hand[i]],
+                fill: this.terrainColoring[hand[i]],
                 stroke: 'black',
                 strokeWidth: 2,
                 resource: hand[i],
@@ -521,7 +527,7 @@ GraphicalBoard.prototype = {
       for(var i = 0; i < gridObject.edges.length; i++) {
          line = gridObject.edges[i];
          if(line.getAttr('coords')[2] == edge[2]) {
-            line.setStroke(Globals.playerData[this.state.getCurrentPlayer()][0]);
+            line.setStroke(this.playerColoring[this.state.getCurrentPlayer()]);
             // line.setListening(false);
             this.edgeLayer.draw();
             break;
@@ -535,7 +541,7 @@ GraphicalBoard.prototype = {
       for(var i = 0; i < gridObject.vertices.length; i++) {
          circle = gridObject.vertices[i];
          if(circle.getAttr('coords')[2] == vertex[2]) {
-            circle.setFill(Globals.playerData[this.state.getCurrentPlayer()][0]);
+            circle.setFill(this.playerColoring[this.state.getCurrentPlayer()]);
             circle.setOpacity(1);
             this.vertexLayer.draw();
             break;
@@ -555,7 +561,7 @@ GraphicalBoard.prototype = {
                     numPoints: 6,
                     innerRadius: this.hexVertexRadius,
                     outerRadius: this.hexVertexRadius*2,
-                    fill: Globals.playerData[this.state.getCurrentPlayer()][0],
+                    fill: this.playerColoring[this.state.getCurrentPlayer()],
                     stroke: 'black',
                     strokeWidth: 1,
                 });
@@ -569,17 +575,6 @@ GraphicalBoard.prototype = {
 
    //lobby-drawing
     updatePlayers : function function_name () {
-        // var players = $('#players');
-        // for(var key in this.state.players) {
-        //     var playerDom = players.find('#p'+key)
-        //         .text(this.state.players[key]);
-
-        //     if(key == this.state.currentPlayer) {
-        //         players.find('li').css('font-weight', 'normal');
-        //         playerDom.css('font-weight', 'bold');
-        //     }
-        // }
-
         gb.playerLayer.getChildren().each(function (node, i) {
           var currentPlayer = gb.state.getCurrentPlayer();
           if(parseInt(node.getAttr('player_num')) == currentPlayer) {
@@ -621,6 +616,10 @@ var Log = function () {
           $('<p><span class="code">['+this.logTypes[code]+']</span> '+message+'</p>').appendTo(logarea);
     };
 };
+
+socket.on('full', function () {
+  alert('Sorry, this instance is full!');
+});
 
 socket.on('state', function (data) {
     gb = new GraphicalBoard(data.gW, data.gH, data.state, data.player_num);
@@ -673,7 +672,7 @@ socket.on('moveBaron', function (data) {
 socket.on('overflowNotice', function (data) {
     gb.state.setBaronState(data.baronState);
     gb.stateChange();
-    log.log(1, 'BARON PHASE: You have more than '+Globals.overflowHandSize+' resources in your hand. You must discard half of them.');
+    log.log(1, 'BARON PHASE: You have more than '+OVERFLOW_HAND_SIZE+' resources in your hand. You must discard half of them.');
 });
 socket.on('overflowWait', function (data) {
     var overflows = data.overflowPlayers.map(function (el) {
@@ -727,7 +726,7 @@ socket.on('nextTurn', function (data) {
     gb.stateChange();
 
     if(data.round < 2 && gb.state.isMyTurn()) {
-        if(gb.state.getMyNum() == Globals.playerData - 1) 
+        if(gb.state.getMyNum() == NUM_PLAYERS - 1) 
           log.log(0, 'SETUP PHASE: You are allowed to place two settlements and two roads for free this turn.');
         else
           log.log(0, 'SETUP PHASE: You are allowed to place one settlement and one road for free this turn.');
