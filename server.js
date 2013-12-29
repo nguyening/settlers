@@ -1,6 +1,7 @@
 // require
 var Globals = require('./lib/globals.js').Globals;
 var State = require('./lib/state.js').State;
+var HexagonGrid = require('./lib/hexgrid.js').HexagonGrid;
 
 var jade = require('jade');
 var express = require('express'), app = express();
@@ -34,7 +35,6 @@ var LogicalBoard = function (_width, _height) {
 	this.height = _height;
 
 	this.state = new State();
-
 	this.Hex = function (_resource, _roll, _x, _y) {
 		this.resource = _resource;
 		this.roll = _roll;
@@ -92,232 +92,31 @@ LogicalBoard.prototype = {
 		this.state.setGrid(grid);
 	},
 
-	// relations
-	// based on those presented in http://www-cs-students.stanford.edu/~amitp/game-programming/grids/
-	edges : function (_x, _y) {
-	  return [
-	     [_x, _y, 'N'],
-	     [_x, _y, 'W'],
-	     [_x, _y, 'S'],
-	  ];
-	},
+	utils : {
+		// build array of intersecting coordinates in arrays a, b
+		intersectEndPts : function (a, b) {
+			var t, res = [];
+			if(a.length < b.length) {
+				t = a;
+				a = b;
+				b = t;
+			}
 
-	vertices : function (_x, _y) {
-	  return [
-	     [_x, _y, 'N'],
-	     [_x, _y, 'S'],
-	  ];
-	},
-
-	neighbors : function (face) {
-	  var x = face[0], y = face[1];
-	  if(y % 2 == 0) {
-	     return [
-	        [x, y+1],
-	        [x, y-1],
-	        [x-1, y],
-	        [x+1, y],
-	        [x-1, y+1],
-	        [x-1, y-1],
-	     ];
-	  }
-	  else {
-	     return [
-	        [x, y+1],
-	        [x, y-1],
-	        [x-1, y],
-	        [x+1, y],
-	        [x+1, y+1],
-	        [x+1, y-1],
-	     ];
-	  }
-	},
-
-	borders : function (face) {
-	  var x = face[0], y = face[1];
-	  if(y % 2 == 0) {
-	     return [
-	        [x, y, 'N'],
-	        [x, y, 'W'],
-	        [x, y, 'S'],
-	        [x, y-1, 'S'],
-	        [x+1, y, 'W'],
-	        [x, y+1, 'N'],
-	     ];
-	  }
-	  else {
-	     return [
-	        [x, y, 'N'],
-	        [x, y, 'W'],
-	        [x, y, 'S'],
-	        [x+1, y-1, 'S'],
-	        [x+1, y, 'W'],
-	        [x+1, y+1, 'N'],
-	     ];
-	  }      
-	},
-
-	corners : function (face) {
-	  var x = face[0], y = face[1];
-	  if(y % 2 == 0) {
-	     return [
-	        [x, y, 'N'],
-	        [x, y, 'S'],
-	        [x, y-1, 'S'],
-	        [x, y+1, 'N'],
-	        [x-1, y-1, 'S'],
-	        [x-1, y+1, 'N'],
-	     ];
-	  }
-	  else {
-	     return [
-	        [x, y, 'N'],
-	        [x, y, 'S'],
-	        [x-1, y-1, 'S'],
-	        [x-1, y+1, 'N'],
-	        [x+1, y-1, 'S'],
-	        [x+1, y+1, 'N'],
-	     ];
-	  }     
-	},
-
-	endpoints : function (edge) {
-	  var x = edge[0], y = edge[1], label = edge[2];
-	  if(label == 'N') {
-	     if(y % 2 == 0) 
-	        return [[x, y, 'N'], [x-1, y-1, 'S']];
-	     else
-	        return [[x, y, 'N'], [x, y-1, 'S']];
-	  }
-	  else if(label == 'W') {
-	     if(y % 2 == 0) 
-	        return [[x-1, y+1, 'N'], [x-1, y-1, 'S']];
-	     else
-	        return [[x, y+1, 'N'], [x, y-1, 'S']];
-	  }
-	  else if(label == 'S') {
-	     if(y % 2 == 0) 
-	        return [[x, y, 'S'], [x-1, y+1, 'N']];
-	     else
-	        return [[x, y, 'S'], [x, y+1, 'N']];
-	  }
-
-	  return false;
-	},
-
-	touches : function (vertex) {
-	  var x = vertex[0], y = vertex[1], label = vertex[2];
-	  if(label == 'N') {
-	     if(y % 2 == 0)
-	        return [[x, y], [x-1, y-1], [x, y-1]];
-	     else
-	        return [[x, y], [x, y-1], [x+1, y-1]];
-	  }
-	  else if(label == 'S') {
-	     if(y % 2 == 0)
-	        return [[x, y], [x-1, y+1], [x, y+1]];
-	     else
-	        return [[x, y], [x, y+1], [x+1, y+1]];
-	  }
-
-	 return false; 
-	},
-
-	protrudes : function (vertex) {
-	  var x = vertex[0], y = vertex[1], label = vertex[2];
-	  if(label == 'N') {
-	     if(y % 2 == 0) {
-	        return [
-	           [x, y, 'N'],
-	           [x, y-1, 'W'],
-	           [x, y-1, 'S'],
-	        ];
-	     }
-	     else {
-	        return [
-	           [x, y, 'N'],
-	           [x+1, y-1, 'W'],
-	           [x+1, y-1, 'S'],
-	        ];
-	     }
-	  }
-	  else if(label == 'S') {
-	     if(y % 2 == 0) {
-	        return [
-	           [x, y, 'S'],
-	           [x, y+1, 'W'],
-	           [x, y+1, 'N'],
-	        ];
-	     }
-	     else {
-	        return [
-	           [x, y, 'S'],
-	           [x+1, y+1, 'W'],
-	           [x+1, y+1, 'N'],
-	        ];
-	     }
-	  }      
-	},
-
-	adjacent : function (vertex) {
-	  var x = vertex[0], y = vertex[1], label = vertex[2];
-	  if(label == 'N') {
-	     if(y % 2 == 0) {
-	        return [
-	           [x, y-2, 'S'],
-	           [x-1, y-1, 'S'],
-	           [x, y-1, 'S'],
-	        ];
-	     }
-	     else {
-	        return [
-	           [x, y-2, 'S'],
-	           [x, y-1, 'S'],
-	           [x+1, y-1, 'S'],
-	        ];
-	     }
-	  }
-	  else if(label == 'S') {
-	     if(y % 2 == 0) {
-	        return [
-	           [x, y+2, 'N'],
-	           [x-1, y+1, 'N'],
-	           [x, y+1, 'N'],
-	        ];
-	     }
-	     else {
-	        return [
-	           [x, y+2, 'N'],
-	           [x, y+1, 'N'],
-	           [x+1, y+1, 'N'],
-	        ];
-	     }
-	  }        
+			var a_vertices = a.toString();
+			var b_vertex;
+			for(var i = 0; i < b.length; i++) {
+				b_vertex = b[i].toString();
+				if(a_vertices.indexOf(b_vertex) != -1)
+				   res.push(b[i]);
+			}
+			return res;
+		},
 	},
 
 	// game-logic
-
 	canBuild : function (build, data) {
 		var logic = this;
 		var state = logic.state;
-
-		// check if two arrays have intersecting coordinates
-		var intersectEndPts = function (a, b) {
-		var t;
-		if(a.length < b.length) {
-			t = a;
-			a = b;
-			b = t;
-		}
-
-		a_vertices = a.toString();
-		for(var i = 0; i < b.length; i++) {
-			b_vertex = b[i].toString();
-			if(a_vertices.indexOf(b_vertex) != -1)
-				return true;
-			}
-		return false;
-		};
 
 		// checks if array of objects a contains object b
 		var objArrContains = function (a, b) {
@@ -330,22 +129,24 @@ LogicalBoard.prototype = {
 
 		if(build == 'road') {
 			var availableEndPts = state.getCurrRoads().map(function (edge, idx) {
-				return logic.endpoints(edge);
+				return HexagonGrid.endpoints(edge);
 			});
 			availableEndPts = [].concat.apply([], availableEndPts);			// flatten array
 
 			var currentSettlements = state.getCurrSettlements();
-			var roadEndPts = this.endpoints(data);
+			var roadEndPts = HexagonGrid.endpoints(data);
 
 			var opponentRoads = state.getOpponentRoads();
-			return ((intersectEndPts(availableEndPts, roadEndPts) || intersectEndPts(currentSettlements, roadEndPts)) && !objArrContains(opponentRoads, data));
+			return ((logic.utils.intersectEndPts(availableEndPts, roadEndPts).length > 0 || 
+					 logic.utils.intersectEndPts(currentSettlements, roadEndPts).length > 0) 
+					&& !objArrContains(opponentRoads, data));
 		}
 		else if(build == 'settlement') {
 			var availableEndPts = state.getCurrRoads().map(function (edge, idx) {
-				return logic.endpoints(edge);
+				return HexagonGrid.endpoints(edge);
 			});
 			var selectedVertex = [data];
-			var adjacentVertices = this.adjacent(data);
+			var adjacentVertices = HexagonGrid.adjacent(data);
 			var allSettlements = [].concat.apply([], state.getAllSettlements());
 			
 			var currentSettlements = state.getCurrSettlements();
@@ -355,14 +156,16 @@ LogicalBoard.prototype = {
 			if( (currentRound < 1 && currentSettlements.length < 1) ||
 				(currentRound > 1 && currentRound < 2 && currentSettlements.length < 2) || 
 				(currentSettlements.length < 2 && currentPlayer == Globals.playerData.length - 1))	// last player can place twice
-				return !intersectEndPts(allSettlements, adjacentVertices);
+				return !(logic.utils.intersectEndPts(allSettlements, adjacentVertices).length > 0);
 			else
-				return (intersectEndPts(availableEndPts, selectedVertex) && !intersectEndPts(allSettlements, adjacentVertices));
+				return ((logic.utils.intersectEndPts(availableEndPts, selectedVertex).length > 0) && 
+						!(logic.utils.intersectEndPts(allSettlements, adjacentVertices).length > 0));
 		}
 		else if(build == 'city') {
 			var currentSettlements = state.getCurrSettlements();
 			var currentCities = state.getCurrCities();
-			return intersectEndPts(currentSettlements, [data]) && !intersectEndPts(currentCities, [data]);
+			return (logic.utils.intersectEndPts(currentSettlements, [data]) > 0) && 
+					!(logic.utils.intersectEndPts(currentCities, [data]) > 0);
 		}
 		else
 			return false;
@@ -414,23 +217,6 @@ LogicalBoard.prototype = {
 		var lb = this;
 		var state = lb.state;
 		var distributeResources = function (roll) {
-			var calcIntersectEndPts = function (a, b) {
-				var t, res = [];
-				if(a.length < b.length) {
-					t = a;
-					a = b;
-					b = t;
-				}
-
-				a_vertices = a.toString();
-				for(var i = 0; i < b.length; i++) {
-					b_vertex = b[i].toString();
-					if(a_vertices.indexOf(b_vertex) != -1)
-					   res.push(b[i]);
-				}
-				return res;
-			};
-
 			var grid = state.getGrid();
 			var resources = [];
 			for(var i = 0; i < lb.height; i++) {
@@ -446,12 +232,12 @@ LogicalBoard.prototype = {
 			var cities = state.getAllCities();
 			for(var i = 0; i < resources.length; i++) {
 				resource = resources[i][2];
-				resourceVertices = lb.corners([resources[i][0], resources[i][1]]);
+				resourceVertices = HexagonGrid.corners([resources[i][0], resources[i][1]]);
 
 				for(var p = 0; p < Globals.playerData.length; p++) {
-					cardsAdded[p] = cardsAdded[p].concat(calcIntersectEndPts(settlements[p], resourceVertices)
+					cardsAdded[p] = cardsAdded[p].concat(lb.utils.intersectEndPts(settlements[p], resourceVertices)
 										.map(function () { return resource; }));
-					cardsAdded[p] = cardsAdded[p].concat(calcIntersectEndPts(cities[p], resourceVertices)		// add +1 for cities
+					cardsAdded[p] = cardsAdded[p].concat(lb.utils.intersectEndPts(cities[p], resourceVertices)		// add +1 for cities
 										.map(function () {return resource;}));
 				}
 			}
@@ -524,7 +310,7 @@ LogicalBoard.prototype = {
 			return false;
 		};
 
-		var robbableVertices = this.corners(this.state.getBaron());
+		var robbableVertices = HexagonGrid.corners(this.state.getBaron());
 		var playerHands = this.state.getAllHands();
 		var playerSettlements = this.state.getAllSettlements();
 		var currentPlayer = this.state.getCurrentPlayer();
