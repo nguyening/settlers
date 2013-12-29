@@ -1,20 +1,37 @@
 
-#container {
+#board {
 	display: inline-block;
 	background-color: darkblue;
 	text-align: center;
 }
 
-#logger {
-	position: relative;
+#interactions {
 	display: inline-block;
 	margin: 0 10px;
-	width: 40%;
-	height: 600px;
+	vertical-align: top;
+}
 
+#tradeContainer {
+	padding-bottom: 50px;
+}
+
+#tradeWindow {
+	display: inline-block;
+	background-color: white;
+}
+
+#logContainer {
+	position: relative;
+	width: 500px;
+	height: 400px;
+
+	vertical-align: top;
+}
+
+#log {
 	font-size: 10px;
 	font-family: sans-serif;
-	vertical-align: top;
+	word-wrap: break-word;
 }
 
 #chat {
@@ -23,5 +40,19 @@
 }
 
 #dialog {
-	width: 350px;
+	width: 500px;
+}
+
+#tradeButtons {
+	text-align: center;
+}
+
+.header {
+	text-align: center;
+	font-size: 12px;
+	font-weight: bold;
+}
+
+.header p {
+	margin: 0;
 }

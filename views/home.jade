@@ -9,11 +9,20 @@ html
       script(src="./board.js")
       link(rel="stylesheet", href="style.css")
    body
-      div#container
-      div#logger
-         div#log
-         div#chat
-            input#dialog
+      div#board
+      div#interactions
+         div#tradeContainer
+            .header
+               p Trading
+            div#tradeWindow
+            div#tradeButtons
+               button#trade Accept Trade
+         div#logContainer
+            .header
+               p Chat/Log
+            div#log
+            div#chat
+               input#dialog
       div#controls
          input#resource
          button#giveResource GIMME
