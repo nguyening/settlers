@@ -456,15 +456,18 @@ LogicalBoard.prototype = {
 				}
 			}
 			
-			for(var p = 0; p < Globals.playerData.length; p++) {
+			var pSockets = state.getPlayerSockets();
+			for(var p = 0; p < Object.keys(pSockets).length; p++) {
 				state.giveResources(p, cardsAdded[p]);
+				io.sockets.socket(pSockets[p]).emit('gain', {
+					action: 'roll',
+					cardsAdded : cardsAdded[p],
+				});
 			}
-
-			// TODO: emit cardsAdded per socket so other players don't know opp hands
-			io.sockets.emit('distributeResources', { cardsAdded : cardsAdded, hands : lb.state.hands });
 		};
 
-		var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
+		// var dice = [Math.floor(Math.random()*6+1), Math.floor(Math.random()*6+1)];
+		var dice = [1,2];
 		io.sockets.emit('roll', { roll: dice[0]+dice[1] });
 
 		// robber baron
@@ -645,21 +648,17 @@ io.sockets.on('connection', function (socket) {
 
 			var i = Math.floor(Math.random()*oppHand.length);
 			myHand.push(oppHand[i]);
-			
-			var cardsAdded = Globals.defaultState.hands.slice(0);
-			cardsAdded[state.getCurrentPlayer()] = [oppHand[i]];
-
 			oppHand.splice(i, 1);
-
 
 			io.sockets.socket(lb.state.getSocket(data.player_num)).emit('deduct', {
 				action: 'steal',
 				hand: oppHand,
 			});
-			// TODO: only emit to current player
-			io.sockets.emit('distributeResources', {
-				cardsAdded : cardsAdded,
-				hands : lb.state.getAllHands(),
+
+			socket.emit('gain', {
+				action: 'steal',
+				oppPlayer: data.player_num,
+				cardsAdded : [oppHand[i]],
 			});
 
 			state.setBaronState(0);
@@ -774,13 +773,13 @@ io.sockets.on('connection', function (socket) {
 			return;
 
 		var p = lb.state.getPlayerNum(socket.id);
-		var cardsAdded = Globals.defaultState.hands.slice(0);
-		cardsAdded[p] = [data.resource]
+		// var cardsAdded = Globals.defaultState.hands.slice(0);
+		// cardsAdded[p] = [data.resource]
 		lb.state.giveResources(p, [data.resource]);
 
-		io.sockets.emit('distributeResources', {
-			cardsAdded: cardsAdded,
-			hands: lb.state.getAllHands(),
+		socket.emit('gain', {
+			action: 'admin',
+			cardsAdded: [data.resource],
 		});
 	});
 

@@ -685,13 +685,15 @@ socket.on('overflowWait', function (data) {
 });
 
 
-socket.on('distributeResources', function (data) {
-    // data.cardsAdded
-    for(var i = 0; i < data.hands.length; i++) {
-      gb.state.setHand(i, data.hands[i]);
-    }
+socket.on('gain', function (data) {
+    gb.state.giveResources(gb.state.getMyNum(), data.cardsAdded);
     gb.drawHand();
-    log.log(1, 'ROLL PHASE: Resources have been distributed for the roll.');
+    if(data.action == 'roll')
+      log.log(1, 'ROLL PHASE: Resources have been distributed for the roll.');
+    else if(data.action == 'steal')
+      log.log(0, 'BARON PHASE: You have stolen resources from Player '+(data.oppPlayer));
+    else if(data.action == 'admin')
+      log.log(0, 'You have given yourself resources.');
 });
 
 socket.on('deduct', function (data) {
