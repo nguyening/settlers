@@ -2,9 +2,9 @@ doctype html
 html
    head
       title Settlers
-      script(src="./require.js")
       script(src='https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js')
       script(src='/socket.io/socket.io.js')
+      script(src="./require.js")
       script(src="./kinetic-v4.7.4.min.js")
       script(src="./board.js")
       link(rel="stylesheet", href="style.css")
@@ -15,5 +15,7 @@ html
          div#chat
             input#dialog
       div#controls
+         input#resource
+         button#giveResource GIMME
          button#discard Discard Selected Resources
          button#endTurn End Turn
