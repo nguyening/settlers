@@ -329,26 +329,26 @@ LogicalBoard.prototype = {
 		}
 
 		if(build == 'road') {
-			var availableEndPts = state.getMyRoads().map(function (edge, idx) {
+			var availableEndPts = state.getCurrRoads().map(function (edge, idx) {
 				return logic.endpoints(edge);
 			});
 			availableEndPts = [].concat.apply([], availableEndPts);			// flatten array
 
-			var currentSettlements = state.getMySettlements();
+			var currentSettlements = state.getCurrSettlements();
 			var roadEndPts = this.endpoints(data);
 
 			var opponentRoads = state.getOpponentRoads();
 			return ((intersectEndPts(availableEndPts, roadEndPts) || intersectEndPts(currentSettlements, roadEndPts)) && !objArrContains(opponentRoads, data));
 		}
 		else if(build == 'settlement') {
-			var availableEndPts = state.getMyRoads().map(function (edge, idx) {
+			var availableEndPts = state.getCurrRoads().map(function (edge, idx) {
 				return logic.endpoints(edge);
 			});
 			var selectedVertex = [data];
 			var adjacentVertices = this.adjacent(data);
 			var allSettlements = [].concat.apply([], state.getAllSettlements());
 			
-			var currentSettlements = state.getMySettlements();
+			var currentSettlements = state.getCurrSettlements();
 			var currentRound = state.getRound();
 			var currentPlayer = state.getCurrentPlayer();
 
@@ -360,8 +360,8 @@ LogicalBoard.prototype = {
 				return (intersectEndPts(availableEndPts, selectedVertex) && !intersectEndPts(allSettlements, adjacentVertices));
 		}
 		else if(build == 'city') {
-			var currentSettlements = state.getMySettlements();
-			var currentCities = state.getMyCities();
+			var currentSettlements = state.getCurrSettlements();
+			var currentCities = state.getCurrCities();
 			return intersectEndPts(currentSettlements, [data]) && !intersectEndPts(currentCities, [data]);
 		}
 		else
@@ -369,15 +369,15 @@ LogicalBoard.prototype = {
 	},  
 
 	canAfford : function (type) {
-		var hand = this.state.getMyHand();
+		var hand = this.state.getCurrHand();
 		var currentRound = this.state.getRound();
 		
 		if(currentRound < 2) {							// first 2 rounds are freebies
-			var currentRoads = this.state.getMyRoads();
+			var currentRoads = this.state.getCurrRoads();
 			var currentPlayer = this.state.getCurrentPlayer();
 			if(type == 'road') {
 				if( (currentRound < 1 && currentRoads.length == 0) ||
-					(currentRound > 1 && currentRound < 2 && currentRoads.length == 1) ||
+					(currentRound > 1 && currentRound < 2 && currentRoads.length <= 1) ||
 					(currentRound < 1 && currentRoads.length == 1 && currentPlayer == Globals.playerData.length -1))
 					return hand;
 				else
@@ -599,7 +599,6 @@ io.sockets.on('connection', function (socket) {
 				gW: lb.width,
 				gH: lb.height,
 				state: state,
-				sessid: socket.id,
 			});
 		}
 		else {	// observer
@@ -642,7 +641,7 @@ io.sockets.on('connection', function (socket) {
 
 		if(lb.robbablePlayers().indexOf(data.player_num) != -1) {
 			var oppHand = state.getHand(data.player_num);
-			var myHand = state.getMyHand();
+			var myHand = state.getCurrHand();
 
 			var i = Math.floor(Math.random()*oppHand.length);
 			myHand.push(oppHand[i]);

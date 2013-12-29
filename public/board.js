@@ -1,13 +1,12 @@
 var socket = io.connect();
 var Globals = require('./lib/globals.js').Globals;
+var State = require('./lib/state.js').State;
 var gb, log;
-var GraphicalBoard = function (_width, _height, _state, sessid) {
-    //czech http://stackoverflow.com/a/18949651/1487756
-    this.player_num = Array.apply(null, {length : Globals.playerData.length})
-                .map(function(el,i) {return _state.players[i];}).indexOf(sessid);
+var GraphicalBoard = function (_width, _height, _state) {
+    this.state = new State();
+    this.state.initializeLocalState(_state);
 
     this.grid = [];
-    this.state = _state || Globals.defaultState.slice(0);
     this.gridWidth = _width;
     this.gridHeight = _height;
     this.canvasWidth = 500;
@@ -84,6 +83,9 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
 
     this.vertexLayer.on('click', function (evt) {
         var circle = evt.targetNode;
+        if(!(circle instanceof Kinetic.Circle)) // can't upgrade past a city
+          return;
+
         var vertex = circle.getAttr('coords');
         if(circle.getAttr('fill') != gb.defaultVertexFill) {
             gb.build('city', vertex);
@@ -101,10 +103,10 @@ var GraphicalBoard = function (_width, _height, _state, sessid) {
     this.playerLayer.on('click', function (evt) {
         var wedge = evt.targetNode;
         var pnum = wedge.getAttr('player_num');
-        if(pnum == gb.player_num) // no interactions for self
+        if(pnum == gb.state.getMyNum()) // no interactions for self
             return;
 
-        if(gb.state.baronState == 2) {
+        if(gb.state.isBaronState(2)) {
           socket.emit('requestBaronSteal', {player_num: pnum});
           log.log(0, '> STEAL FROM '+pnum);
         }
@@ -256,14 +258,14 @@ GraphicalBoard.prototype = {
                if(color == defaultEdgeStroke) {
                    // Edge hover interactions
                    line.on('mouseover', function () {
-                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != Globals.playerData[gb.player_num][0]) )
+                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != Globals.playerData[gb.state.getMyNum()][0]) )
                             return;
                       this.setStrokeWidth(hexEdgeThickness*5);
                       gb.edgeLayer.draw();
                    });
 
                    line.on('mouseleave', function () {
-                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != Globals.playerData[gb.player_num][0]) )
+                        if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != Globals.playerData[gb.state.getMyNum()][0]) )
                             return;
                       this.setStrokeWidth(hexEdgeThickness);
                       gb.edgeLayer.draw();
@@ -320,7 +322,7 @@ GraphicalBoard.prototype = {
                    });
 
                    circle.on('mouseover', function () {
-                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.player_num][0]) )
+                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.state.getMyNum()][0]) )
                             return;
                         this.setAttrs({
                             opacity: 1,
@@ -332,7 +334,7 @@ GraphicalBoard.prototype = {
                    });
 
                    circle.on('mouseleave', function () {
-                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.player_num][0]) )
+                        if( (this.getAttr('fill') != defaultVertexFill && this.getAttr('fill') != Globals.playerData[gb.state.getMyNum()][0]) )
                             return;
                         this.setAttrs({
                             opacity: (this.getAttr('fill') == defaultVertexFill) ? 0 : 1,
@@ -363,7 +365,7 @@ GraphicalBoard.prototype = {
     },
 
     stateChange : function () {
-      if( (gb.state.currentPlayer != gb.player_num) ) {
+      if( !gb.state.isMyTurn() ) {
         gb.hexLayer.setListening(false);
         gb.edgeLayer.setListening(false);
         gb.vertexLayer.setListening(false);
@@ -371,21 +373,21 @@ GraphicalBoard.prototype = {
         gb.drawHit();
       }
       else {
-        if(gb.state.baronState == 1) {
+        if(gb.state.isBaronState(1)) {
           gb.hexLayer.setListening(true);
           gb.edgeLayer.setListening(false);
           gb.vertexLayer.setListening(false);
           gb.playerLayer.setListening(false);
           gb.drawHit();
         }
-        else if(gb.state.baronState == 2) {
+        else if(gb.state.isBaronState(2)) {
           gb.hexLayer.setListening(false);
           gb.edgeLayer.setListening(false);
           gb.vertexLayer.setListening(false);
           gb.playerLayer.setListening(true);
           gb.drawHit();
         }
-        else if(gb.state.baronState == 0) {
+        else if(gb.state.isBaronState(0)) {
           gb.hexLayer.setListening(false);
           gb.edgeLayer.setListening(true);
           gb.vertexLayer.setListening(true);
@@ -393,7 +395,7 @@ GraphicalBoard.prototype = {
           gb.playerLayer.setListening(false);
           gb.drawHit();
         }
-        else if(gb.state.baronState == 3) { // wait for other players
+        else if(gb.state.isBaronState(3)) { // wait for other players
           gb.hexLayer.setListening(false);
           gb.edgeLayer.setListening(false);
           gb.vertexLayer.setListening(false);
@@ -465,7 +467,7 @@ GraphicalBoard.prototype = {
     },
 
     drawBaron : function () {
-        var coords = this.state.baron;
+        var coords = this.state.getBaron();
         var hex = this.grid[coords[1]][coords[0]].face;
         this.baron.setAttrs({
           x: hex.getAttr('x'),
@@ -478,7 +480,7 @@ GraphicalBoard.prototype = {
     drawHand : function () {
        this.handLayer.removeChildren();
        var group = new Kinetic.Group({x:0, y:0});
-       var box, hand = this.state.hands[this.player_num];
+       var box, hand = this.state.getMyHand();
        for(var i = 0; i < hand.length; i++) {
             box = new Kinetic.Rect({
                 x: i*this.cardWidth/2,
@@ -519,7 +521,7 @@ GraphicalBoard.prototype = {
       for(var i = 0; i < gridObject.edges.length; i++) {
          line = gridObject.edges[i];
          if(line.getAttr('coords')[2] == edge[2]) {
-            line.setStroke(Globals.playerData[this.state.currentPlayer][0]);
+            line.setStroke(Globals.playerData[this.state.getCurrentPlayer()][0]);
             // line.setListening(false);
             this.edgeLayer.draw();
             break;
@@ -533,7 +535,7 @@ GraphicalBoard.prototype = {
       for(var i = 0; i < gridObject.vertices.length; i++) {
          circle = gridObject.vertices[i];
          if(circle.getAttr('coords')[2] == vertex[2]) {
-            circle.setFill(Globals.playerData[this.state.currentPlayer][0]);
+            circle.setFill(Globals.playerData[this.state.getCurrentPlayer()][0]);
             circle.setOpacity(1);
             this.vertexLayer.draw();
             break;
@@ -553,7 +555,7 @@ GraphicalBoard.prototype = {
                     numPoints: 6,
                     innerRadius: this.hexVertexRadius,
                     outerRadius: this.hexVertexRadius*2,
-                    fill: Globals.playerData[this.state.currentPlayer][0],
+                    fill: Globals.playerData[this.state.getCurrentPlayer()][0],
                     stroke: 'black',
                     strokeWidth: 1,
                 });
@@ -579,7 +581,8 @@ GraphicalBoard.prototype = {
         // }
 
         gb.playerLayer.getChildren().each(function (node, i) {
-          if(parseInt(node.getAttr('player_num')) == gb.state.currentPlayer) {
+          var currentPlayer = gb.state.getCurrentPlayer();
+          if(parseInt(node.getAttr('player_num')) == currentPlayer) {
             node.setAttrs({
               stroke: 'black',
               strokeWidth: 5,
@@ -620,11 +623,11 @@ var Log = function () {
 };
 
 socket.on('state', function (data) {
-    gb = new GraphicalBoard(data.gW, data.gH, data.state, data.sessid);
+    gb = new GraphicalBoard(data.gW, data.gH, data.state, data.player_num);
     gb.updatePlayers();
     log = new Log();
-    log.log(0, 'You ('+data.sessid+') have joined the game as Player '+(gb.player_num+1));
-    log.log(0, 'It is currently Player '+(gb.state.currentPlayer+1)+'\'s turn.');
+    log.log(0, 'You have joined the game as Player '+(data.state.player_num+1));
+    log.log(0, 'It is currently Player '+(gb.state.getCurrentPlayer()+1)+'\'s turn.');
     gb.stateChange();
 });
 
@@ -640,35 +643,35 @@ socket.on('players', function (data) {
 });
 
 socket.on('roll', function (data) {
-    log.log(1, 'Player '+(gb.state.currentPlayer+1)+' has rolled a '+data.roll+'.');
+    log.log(1, 'Player '+(gb.state.getCurrentPlayer()+1)+' has rolled a '+data.roll+'.');
 });
 
 // Baron
 socket.on('promptBaronMove', function (data) {
-    gb.state.baronState = data.baronState;
+    gb.state.setBaronState(data.baronState);
     gb.stateChange();
     log.log(0, 'BARON PHASE: You need to move the baron to a new tile.');
 });
 socket.on('promptBaronSteal', function (data) {
-    gb.state.baronState = data.baronState;
+    gb.state.setBaronState(data.baronState);
     // data.robbablePlayers;
     gb.stateChange();
     log.log(0, 'BARON PHASE: Select a player whose settlement(s) are on that tile to steal from.');
 });
 socket.on('baronFinish', function (data) {
-    gb.state.baronState = data.baronState;
+    gb.state.setBaronState(data.baronState);
     gb.stateChange();
     log.log(0, 'BUILD PHASE: You can now build settlements or roads.');
 });
 
 socket.on('moveBaron', function (data) {
-    gb.state.baron = data.coords;
+    gb.state.placeBaron(data.coords);
     gb.drawBaron();
     log.log(1, 'BARON PHASE: The baron has been moved!');
 });
 
 socket.on('overflowNotice', function (data) {
-    gb.state.baronState = data.baronState;
+    gb.state.setBaronState(data.baronState);
     gb.stateChange();
     log.log(1, 'BARON PHASE: You have more than '+Globals.overflowHandSize+' resources in your hand. You must discard half of them.');
 });
@@ -676,7 +679,7 @@ socket.on('overflowWait', function (data) {
     var overflows = data.overflowPlayers.map(function (el) {
       return (el+1);
     });
-    gb.state.baronState = data.baronState;
+    gb.state.setBaronState(data.baronState);
     gb.stateChange();
     log.log(1, 'BARON PHASE: Waiting on players to discard half of their hands..('+overflows+')');
 });
@@ -684,13 +687,15 @@ socket.on('overflowWait', function (data) {
 
 socket.on('distributeResources', function (data) {
     // data.cardsAdded
-    gb.state.hands = data.hands;
+    for(var i = 0; i < data.hands.length; i++) {
+      gb.state.setHand(i, data.hands[i]);
+    }
     gb.drawHand();
     log.log(1, 'ROLL PHASE: Resources have been distributed for the roll.');
 });
 
 socket.on('deduct', function (data) {
-    gb.state.hands[gb.player_num] = data.hand;
+    gb.state.setHand(gb.state.getMyNum(), data.hand);
     if(data.action == 'build')
         log.log(0, 'BUILD PHASE: You have lost resources from building.');
     else if(data.action == 'steal')
@@ -710,17 +715,17 @@ socket.on('buildAccept', function (data) {
     else if(data.type == 'city') {
         gb.drawCity(data.coords);
     }
-    log.log(1, 'BUILD PHASE: Player ' + (gb.state.currentPlayer + 1) + ' has built a ' + data.type + '@' + data.coords);
+    log.log(1, 'BUILD PHASE: Player ' + (gb.state.getCurrentPlayer() + 1) + ' has built a ' + data.type + '@' + data.coords);
 });
 
 socket.on('nextTurn', function (data) {
-    log.log(1, 'Player ' + (gb.state.currentPlayer+1) + ' has ended their turn.');
-    gb.state.currentPlayer = data.currentPlayer;
+    log.log(1, 'Player ' + (gb.state.getCurrentPlayer()+1) + ' has ended their turn.');
+    gb.state.setCurrentPlayer(data.currentPlayer);
     gb.updatePlayers();
     gb.stateChange();
 
-    if(data.round < 2 && gb.player_num == gb.state.currentPlayer) {
-        if(gb.player_num == Globals.playerData - 1) 
+    if(data.round < 2 && gb.state.isMyTurn()) {
+        if(gb.state.getMyNum() == Globals.playerData - 1) 
           log.log(0, 'SETUP PHASE: You are allowed to place two settlements and two roads for free this turn.');
         else
           log.log(0, 'SETUP PHASE: You are allowed to place one settlement and one road for free this turn.');
@@ -764,7 +769,7 @@ $(function () {
      if(evt.which == 13) {
       var text = $(this).val();
       socket.emit('chat', {message: text});
-      log.log(0, 'Player '+(gb.player_num+1)+': '+text);
+      log.log(0, 'Player '+(gb.state.getMyNum()+1)+': '+text);
       $(this).val('');
      }
    });
