@@ -205,7 +205,7 @@ GraphicalBoard.prototype = {
       var defaultVertexFill = this.defaultVertexFill;
       var defaultEdgeStroke = this.defaultEdgeStroke;
 
-      var row, color, city_flag;
+      var row, color, city_flag, finalEdgeThickness;
 
       for(var i = 0; i < this.gridHeight; i++) {
          row = [];
@@ -298,7 +298,6 @@ GraphicalBoard.prototype = {
                   }
                }
                color = color || defaultEdgeStroke;
-
                line = new Kinetic.Line({
                   points: edge,
                   stroke: color,
@@ -327,19 +326,56 @@ GraphicalBoard.prototype = {
                    line.on('mouseover', function () {
                         if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != gb.playerColoring[gb.state.getMyNum()]) )
                             return;
-                      this.setStrokeWidth(hexEdgeThickness*5);
+                      this.setStrokeWidth(this.getStrokeWidth()*5);
                       gb.edgeLayer.draw();
                    });
 
                    line.on('mouseleave', function () {
                         if( (this.getAttr('stroke') != defaultEdgeStroke && this.getAttr('stroke') != gb.playerColoring[gb.state.getMyNum()]) )
                             return;
-                      this.setStrokeWidth(hexEdgeThickness);
+                      this.setStrokeWidth(this.getStrokeWidth()/5);
                       gb.edgeLayer.draw();
                    });
                }
                gridObject.edges.push(line);
                this.edgeLayer.add(line);
+                              var harborNum = Globals.getHarborNum(coords);
+               if(harborNum != -1) {                                  
+                  color = this.terrainColoring[this.state.getHarborAssignments()[harborNum]] || 'purple';
+                  line = new Kinetic.Line({
+                    points: edge,
+                    stroke: color,
+                    strokeWidth: hexEdgeThickness*5,
+                    offsetX: this.offsetX,
+                    offsetY: this.offsetY,
+                  });
+
+                  if(coords[2] == 'N') {
+                    if(edge[0][1] > this.canvasHeight/2) {
+                      line.move(7, 10);
+                    }
+                    else {
+                      line.move(-10, -10);
+                    }
+                  }
+                  else if(coords[2] == 'W') {
+                      if(edge[0][0] > this.canvasWidth/2) {
+                        line.move(10, 0);
+                      }
+                      else {
+                        line.move(-10, 0);
+                      }
+                  }
+                  else if(coords[2] == 'S') {
+                    if(edge[0][1] > this.canvasHeight/2) {
+                      line.move(-5, 10);
+                    }
+                    else {
+                      line.move(5, -10);
+                    }
+                  }
+                  this.decoLayer.add(line);
+               }
             }
 
             // Draw hexagon vertices (N, S)
@@ -459,7 +495,9 @@ GraphicalBoard.prototype = {
 
     stateChange : function () {
       var tradeButton = $('#trade');
-      tradeButton.attr('disabled', true);
+      var tradeClear = $('#clearTrade');
+
+      tradeClear.attr('disabled', true);
       if( !gb.state.isMyTurn() ) {
         gb.hexLayer.setListening(false);
         gb.edgeLayer.setListening(false);
@@ -469,6 +507,8 @@ GraphicalBoard.prototype = {
         tradeButton.html('Accept Trade');
       }
       else {
+        tradeClear.removeAttr('disabled');
+
         if(gb.state.isBaronState(1)) {
           gb.hexLayer.setListening(true);
           gb.edgeLayer.setListening(false);
@@ -658,8 +698,12 @@ GraphicalBoard.prototype = {
         this.theirResourcesLayer.setOffsetY((-this.canvasHeight/8)+(layerHeight/2));
         this.theirResourcesLayer.draw();
 
+        $('#trade').attr('disabled', true);
+        $('#exchange').attr('disabled', true);
         if(wantCards.length > 0 && tradeCards.length > 0) {
             $('#trade').removeAttr('disabled');
+            if(this.state.isMyTurn())
+                $('#exchange').removeAttr('disabled');
         }
     },
 
@@ -814,6 +858,7 @@ socket.on('overflowWait', function (data) {
 socket.on('gain', function (data) {
     gb.state.giveResources(gb.state.getMyNum(), data.cardsAdded);
     gb.drawHand();
+    
     if(data.action == 'roll')
       log.log(1, 'ROLL PHASE: Resources have been distributed for the roll.');
     else if(data.action == 'steal')
@@ -822,27 +867,31 @@ socket.on('gain', function (data) {
       log.log(0, 'You have given yourself resources.');
     else if(data.action == 'trade')
       log.log(0, 'TRADING: You have gained resources from the current player.');
+    else if(data.action == 'exchange')
+      log.log(0, 'EXCHANGE: You have lost resources from exchanging.');
 });
 
 socket.on('deduct', function (data) {
     gb.state.setHand(gb.state.getMyNum(), data.hand);
+    gb.drawHand();  
+
     if(data.action == 'build')
         log.log(0, 'BUILD PHASE: You have lost resources from building.');
     else if(data.action == 'steal')
         log.log(0, 'BARON PHASE: You have had some of your resources stolen.');
     else if(data.action == 'overflow')
         log.log(0, 'BARON PHASE: You have handed over your overflow resources.');
-    else if(data.action == 'trade') {
+    else if(data.action == 'trade')
         log.log(0, 'TRADING: You have given your resources to the current player.');
-    }
-    gb.drawHand();  
+    else if(data.action == 'exchange')
+        log.log(0, 'EXCHANGE: You have lost resources from exchanging.');
+      
 });
 
 socket.on('tradeEnd', function () {
     log.log(1, 'TRADING: The announced trade has been accepted.');
     gb.state.setTradeCards([]);
     gb.state.setWantCards([]);
-    gb.stateChange();
     gb.drawTradeWindowContents();
 })
 ;
@@ -931,9 +980,12 @@ $(function () {
 
    $('#trade').click(function (evt) {
       if(gb.state.isMyTurn()) {
+          var tradeCards = gb.state.getTradeCards();
+          var wantCards = gb.state.getWantCards();
+
           socket.emit('tradeAnnounceRequest', {
-              tradeCards: gb.state.getTradeCards(),
-              wantCards: gb.state.getWantCards(),
+              tradeCards: tradeCards,
+              wantCards: wantCards,
           });
           log.log(0, '> ANNOUNCE TRADE '+tradeCards+' for '+wantCards);
       }
@@ -941,5 +993,23 @@ $(function () {
         socket.emit('tradeAccept', {});
         log.log(0, '> ACCEPT TRADE');
       }
-   })
+   });
+
+   $('#exchange').click(function (evt) {
+      var tradeCards = gb.state.getTradeCards();
+      var wantCards = gb.state.getWantCards();
+
+      socket.emit('exchangeRequest', {
+          tradeCards: tradeCards,
+          wantCards: wantCards,
+      });
+      log.log(0, '> EXCHANGE '+tradeCards+' for '+wantCards);
+   });   
+
+   $('#clearTrade').click(function (evt) {
+      gb.state.setTradeCards([]);
+      gb.state.setWantCards([]);
+
+      gb.drawTradeWindowContents();      
+   });
 });
