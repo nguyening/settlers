@@ -33,7 +33,7 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.gridWidth = _width;
     this.gridHeight = _height;
     this.canvasWidth = 500;
-    this.canvasHeight = 600;
+    this.canvasHeight = 500;
 
     this.hexRadius = 50;
     this.hexWidth = 2*this.hexRadius*Math.cos(30 * Math.PI / 180);
@@ -70,10 +70,6 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.vertexLayer = new Kinetic.Layer({
         offsetX : this.offsetX,
         offsetY : this.offsetY,
-    });
-    this.handLayer = new Kinetic.Layer({
-        offsetX : -this.canvasWidth/2,
-        offsetY : -this.cardBaseY,
     });
     this.playerLayer = new Kinetic.Layer();
     this.decoLayer = new Kinetic.Layer();
@@ -117,10 +113,6 @@ var GraphicalBoard = function (_width, _height, _state) {
         }
     });
 
-    this.handLayer.on('click', function (evt) {
-        var card = evt.targetNode;
-        card.setAttr('selected', !card.getAttr('selected'));
-    });
 
     this.playerLayer.on('click', function (evt) {
         var wedge = evt.targetNode;
@@ -138,10 +130,9 @@ var GraphicalBoard = function (_width, _height, _state) {
 
     this.stage.add(this.hexLayer);
     this.stage.add(this.edgeLayer);
-    this.stage.add(this.vertexLayer);   
     this.stage.add(this.playerLayer);
-    this.stage.add(this.handLayer);
     this.stage.add(this.decoLayer);
+    this.stage.add(this.vertexLayer);   
 
     // TRADING WINDOW
     this.tradeWindow = new Kinetic.Stage({
@@ -186,6 +177,19 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.tradeWindow.add(this.tradeButtonsLayer);
     this.tradeWindow.add(this.myResourcesLayer);
     this.tradeWindow.add(this.theirResourcesLayer);
+
+    // HAND
+    this.handWindow = new Kinetic.Stage({
+      container: 'handWindow',
+      width: this.canvasWidth,
+      height: this.cardHeight*2,
+    });
+    this.handLayer = new Kinetic.Layer();
+    this.handLayer.on('click', function (evt) {
+        var card = evt.targetNode;
+        card.setAttr('selected', !card.getAttr('selected'));
+    });
+    this.handWindow.add(this.handLayer);
 
     this.init.apply(this, [this.state]);
 };
@@ -234,8 +238,8 @@ GraphicalBoard.prototype = {
                 text = new Kinetic.Text({
                    x: 0,
                    y: 0,
-                   text: ''+state.grid[i][j].roll+' ('+j+', '+i+')',
-                   fontSize: 12,
+                   text: ''+state.grid[i][j].roll,//+' ('+j+', '+i+')',
+                   fontSize: 16,
                    fontFamily: 'Calibri',
                    fill: 'black',
                 });
@@ -496,47 +500,57 @@ GraphicalBoard.prototype = {
     stateChange : function () {
       var tradeButton = $('#trade');
       var tradeClear = $('#clearTrade');
+      var endTurn = $('#endTurn');
 
+      endTurn.attr('disabled', true);
       tradeClear.attr('disabled', true);
-      if( !gb.state.isMyTurn() ) {
-        gb.hexLayer.setListening(false);
-        gb.edgeLayer.setListening(false);
-        gb.vertexLayer.setListening(false);
-        gb.playerLayer.setListening(false);
-        gb.drawHit();
+
+      if( !this.state.isMyTurn() ) {
+        this.hexLayer.setListening(false);
+        this.edgeLayer.setListening(false);
+        this.vertexLayer.setListening(false);
+        this.playerLayer.setListening(false);
+        this.drawHit();
         tradeButton.html('Accept Trade');
       }
       else {
         tradeClear.removeAttr('disabled');
-
-        if(gb.state.isBaronState(1)) {
-          gb.hexLayer.setListening(true);
-          gb.edgeLayer.setListening(false);
-          gb.vertexLayer.setListening(false);
-          gb.playerLayer.setListening(false);
-          gb.drawHit();
+        if(this.state.isBaronState(1)) {
+          this.hexLayer.setListening(true);
+          this.edgeLayer.setListening(false);
+          this.vertexLayer.setListening(false);
+          this.playerLayer.setListening(false);
+          this.drawHit();
+          log.log(0, 'BARON PHASE: You need to move the baron to a new tile.');
         }
-        else if(gb.state.isBaronState(2)) {
-          gb.hexLayer.setListening(false);
-          gb.edgeLayer.setListening(false);
-          gb.vertexLayer.setListening(false);
-          gb.playerLayer.setListening(true);
-          gb.drawHit();
+        else if(this.state.isBaronState(2)) {
+          this.hexLayer.setListening(false);
+          this.edgeLayer.setListening(false);
+          this.vertexLayer.setListening(false);
+          this.playerLayer.setListening(true);
+          this.drawHit();
+          log.log(0, 'BARON PHASE: Select a player whose settlement(s) are on that tile to steal from.');
         }
-        else if(gb.state.isBaronState(0)) {
-          gb.hexLayer.setListening(false);
-          gb.edgeLayer.setListening(true);
-          gb.vertexLayer.setListening(true);
+        else if(this.state.isBaronState(0)) {
+          this.hexLayer.setListening(false);
+          this.edgeLayer.setListening(true);
+          this.vertexLayer.setListening(true);
           tradeButton.html('Announce Trade');
-          gb.playerLayer.setListening(false);
-          gb.drawHit();
+          this.playerLayer.setListening(false);
+          this.drawHit();
+          endTurn.removeAttr('disabled');
+          log.log(0, 'BUILD PHASE: You can now build settlements or roads.');
         }
-        else if(gb.state.isBaronState(3)) { // wait for other players
-          gb.hexLayer.setListening(false);
-          gb.edgeLayer.setListening(false);
-          gb.vertexLayer.setListening(false);
-          gb.playerLayer.setListening(false);    
-          gb.drawHit();      
+        else if(this.state.isBaronState(3)) { // wait for other players
+          this.hexLayer.setListening(false);
+          this.edgeLayer.setListening(false);
+          this.vertexLayer.setListening(false);
+          this.playerLayer.setListening(false);    
+          this.drawHit();      
+          var overflows = this.state.getOverflowPlayers().map(function (el) {
+            return (el+1);
+          });
+          log.log(1, 'BARON PHASE: Waiting on players to discard half of their hands..('+overflows+')');
         }
       }
     },
@@ -619,12 +633,11 @@ GraphicalBoard.prototype = {
 
     drawHand : function () {
        this.handLayer.removeChildren();
-       var group = new Kinetic.Group({x:0, y:0});
        var box, hand = this.state.getMyHand();
        for(var i = 0; i < hand.length; i++) {
             box = new Kinetic.Rect({
-                x: i*this.cardWidth/2,
-                y: 0,
+                x: (i%10)*this.cardWidth/2+20,
+                y: Math.floor(i/10)*20+20,
                 width: this.cardWidth,
                 height: this.cardHeight,
                 fill: this.terrainColoring[hand[i]],
@@ -648,10 +661,18 @@ GraphicalBoard.prototype = {
                 }
             });
                   
-            group.add(box);
+            this.handLayer.add(box);
        }
-       group.setOffsetX((hand.length+1)*this.cardWidth/4);
-       this.handLayer.add(group);
+        var discardBtn = $('#discard');
+        if((this.handLayer.getChildren().length >= OVERFLOW_HAND_SIZE && this.state.isBaronState(3))) {
+            log.log(1, 'BARON PHASE: You have more than '+OVERFLOW_HAND_SIZE+' resources in your hand. You must discard half of them.');
+            discardBtn.removeAttr('disabled');
+            this.handLayer.setListening(true);
+        }
+        else {
+            discardBtn.attr('disabled', true);
+            this.handLayer.setListening(false);
+        }
        this.handLayer.draw();
     },
 
@@ -793,11 +814,11 @@ socket.on('full', function () {
 });
 
 socket.on('state', function (data) {
-    gb = new GraphicalBoard(data.gW, data.gH, data.state, data.player_num);
-    gb.updatePlayers();
     log = new Log();
     log.log(0, 'You have joined the game as Player '+(data.state.player_num+1));
-    log.log(0, 'It is currently Player '+(gb.state.getCurrentPlayer()+1)+'\'s turn.');
+    log.log(0, 'It is currently Player '+(data.state.currentPlayer+1)+'\'s turn.');
+    gb = new GraphicalBoard(data.gW, data.gH, data.state, data.player_num);
+    gb.updatePlayers();
     gb.stateChange();
 });
 
@@ -820,18 +841,15 @@ socket.on('roll', function (data) {
 socket.on('promptBaronMove', function (data) {
     gb.state.setBaronState(data.baronState);
     gb.stateChange();
-    log.log(0, 'BARON PHASE: You need to move the baron to a new tile.');
 });
 socket.on('promptBaronSteal', function (data) {
     gb.state.setBaronState(data.baronState);
     gb.state.setRobbablePlayers(data.robbable);
     gb.stateChange();
-    log.log(0, 'BARON PHASE: Select a player whose settlement(s) are on that tile to steal from.');
 });
 socket.on('baronFinish', function (data) {
     gb.state.setBaronState(data.baronState);
     gb.stateChange();
-    log.log(0, 'BUILD PHASE: You can now build settlements or roads.');
 });
 
 socket.on('moveBaron', function (data) {
@@ -843,22 +861,19 @@ socket.on('moveBaron', function (data) {
 socket.on('overflowNotice', function (data) {
     gb.state.setBaronState(data.baronState);
     gb.stateChange();
-    log.log(1, 'BARON PHASE: You have more than '+OVERFLOW_HAND_SIZE+' resources in your hand. You must discard half of them.');
+    gb.drawHand();
 });
 socket.on('overflowWait', function (data) {
-    var overflows = data.overflowPlayers.map(function (el) {
-      return (el+1);
-    });
+    gb.state.setOverflowPlayers(data.overflowPlayers);
     gb.state.setBaronState(data.baronState);
     gb.stateChange();
-    log.log(1, 'BARON PHASE: Waiting on players to discard half of their hands..('+overflows+')');
 });
 
 
 socket.on('gain', function (data) {
     gb.state.giveResources(gb.state.getMyNum(), data.cardsAdded);
     gb.drawHand();
-    
+
     if(data.action == 'roll')
       log.log(1, 'ROLL PHASE: Resources have been distributed for the roll.');
     else if(data.action == 'steal')
@@ -923,6 +938,7 @@ socket.on('nextTurn', function (data) {
     gb.state.setTradeCards([]);
     gb.state.setWantCards([]);
 
+    gb.state.setOverflowPlayers([]);
     gb.state.setBaronState(0);
 
     gb.stateChange();
@@ -959,7 +975,7 @@ $(function () {
 
    $('#discard').click(function (evt) {
       var cardsDiscard = [];
-      gb.handLayer.getChildren()[0].getChildren().each(function (card, idx) {
+      gb.handLayer.getChildren().each(function (card, idx) {
           if(card.getAttr('selected'))
             cardsDiscard.push(card.getAttr('resource'));
       });

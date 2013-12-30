@@ -1,51 +1,66 @@
-
-#board {
-	display: inline-block;
-	background-color: darkblue;
-	text-align: center;
+body {
+	margin: 0;
 }
+
+#container {
+
+}
+
+#mainGame {
+	float: left;
+}
+
+	#board {
+		display: inline-block;
+		text-align: center;
+	}
+	#board .kineticjs-content {
+		background-color: darkblue;
+	}
+
 
 #interactions {
-	display: inline-block;
+	/*display: inline-block;
+	vertical-align: top;*/
+	float: left;
 	margin: 0 10px;
-	vertical-align: top;
 }
 
-#tradeContainer {
-	padding-bottom: 50px;
-}
+	#tradeContainer {
+		padding-bottom: 50px;
+	}
 
-#tradeWindow {
-	display: inline-block;
-	background-color: white;
-}
+	#tradeWindow {
+		display: inline-block;
+		background-color: white;
+	}
 
-#logContainer {
-	position: relative;
-	width: 500px;
-	height: 400px;
+	#logContainer {
+		position: relative;
+		width: 500px;
+		height: 400px;
 
-	vertical-align: top;
-}
+		vertical-align: top;
+	}
 
-#log {
-	font-size: 10px;
-	font-family: sans-serif;
-	word-wrap: break-word;
-}
+	#log {
+		font-size: 10px;
+		font-family: sans-serif;
+		word-wrap: break-word;
+	}
 
-#chat {
-	position: absolute;
-	bottom: 0;
-}
+	#chat {
+		position: absolute;
+		bottom: 0;
+	}
 
-#dialog {
-	width: 500px;
-}
+	#dialog {
+		width: 500px;
+	}
 
-#tradeButtons {
-	text-align: center;
-}
+	#tradeButtons {
+		text-align: center;
+	}
 
 .header {
 	text-align: center;

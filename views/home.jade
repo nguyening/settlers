@@ -9,24 +9,27 @@ html
       script(src="./board.js")
       link(rel="stylesheet", href="style.css")
    body
-      div#board
-      div#interactions
-         div#tradeContainer
-            .header
-               p Trading
-            div#tradeWindow
-            div#tradeButtons
-               button#trade Accept Trade
-               button#exchange Exchange
-               button#clearTrade Clear
-         div#logContainer
-            .header
-               p Chat/Log
-            div#log
-            div#chat
-               input#dialog
-      div#controls
-         input#resource
-         button#giveResource GIMME
-         button#discard Discard Selected Resources
-         button#endTurn End Turn
+      div#container
+         div#mainGame
+            div#board
+            div#handWindow
+            div#controls
+               input#resource
+               button#giveResource GIMME
+               button#discard Discard
+               button#endTurn End Turn
+         div#interactions
+            div#tradeContainer
+               .header
+                  p Trading
+               div#tradeWindow
+               div#tradeButtons
+                  button#trade Accept Trade
+                  button#exchange Exchange
+                  button#clearTrade Clear
+            div#logContainer
+               .header
+                  p Chat/Log
+               div#log
+               div#chat
+                  input#dialog
