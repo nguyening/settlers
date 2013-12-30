@@ -5,9 +5,11 @@ http://www.igorkromin.net/?x=entry:entry130430-213220
 
 TODO
 
+=unit testing
 =...organize and cleanup
-=trading
-=ports/exchanging resources
+	= consistent message names verbNoun or nounVerb...
 =devo cards
+=limit resources i.e. bank runs out?
+=no uniform trades (1 wool for 2 wools)
 =responses for invalid queries
 =flood detection

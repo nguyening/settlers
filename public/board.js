@@ -13,8 +13,8 @@ var Log = function () {
 
     this.log = function (code, message) {
         var logarea = $('#log');
-        if(logarea.children().length > 15)
-            logarea.empty();
+        // if(logarea.children().length > 15)
+        //     logarea.empty();
         if(code == -1) {
           $('<p>===================================================================</p>').appendTo(logarea);
         }
@@ -238,7 +238,7 @@ GraphicalBoard.prototype = {
                 text = new Kinetic.Text({
                    x: 0,
                    y: 0,
-                   text: ''+state.grid[i][j].roll,//+' ('+j+', '+i+')',
+                   text: ''+state.grid[i][j].roll+' ('+j+', '+i+')',
                    fontSize: 16,
                    fontFamily: 'Calibri',
                    fill: 'black',
@@ -263,7 +263,25 @@ GraphicalBoard.prototype = {
                         offsetX: gb.offsetX,
                         offsetY: gb.offsetY,
                     });
+
+                    // var tempText = new Kinetic.Group({
+                    //   x: this.getAttr('x')-150,
+                    //   y: this.getAttr('y'),
+                    // });
+
+                    // var coords = this.getAttr('coords');
+                    // tempText.add(new Kinetic.Rect({x:0, y:0, width: 300, height: 20, fill: 'white'}));
+                    // tempText.add(new Kinetic.Text({
+                    //   x:0, y:0,
+                    //   text: JSON.stringify(HexagonGrid.corners(coords)),
+                    //   fontSize: 10,
+                    //   fontFamily: 'Calibri',
+                    //   fill: 'black',
+                    // }));
                     gb.baron.setAttr('tempBaron', tempBaron);
+                    // gb.baron.setAttr('tempText', tempText);
+
+                    // gb.decoLayer.add(tempText);
                     gb.decoLayer.add(tempBaron);
                     gb.decoLayer.draw();
                 });
@@ -271,6 +289,8 @@ GraphicalBoard.prototype = {
                 hexGroup.on('mouseout', function () { // mouseout to prevent bubbling
                     gb.baron.getAttr('tempBaron')
                       .remove();
+                    // gb.baron.getAttr('tempText')
+                    //   .remove();
                     gb.decoLayer.draw();
                 });
                 gridObject.face = hexGroup;
@@ -465,10 +485,11 @@ GraphicalBoard.prototype = {
 
       this.drawBaron();
       this.drawPlayers();
+      this.stage.draw();
 
       // Other UI
       this.drawHand();
-      this.stage.draw();
+      this.drawDevs();
 
       var row, col, rect;
       var rectGroup = new Kinetic.Group({
@@ -504,8 +525,9 @@ GraphicalBoard.prototype = {
 
       endTurn.attr('disabled', true);
       tradeClear.attr('disabled', true);
-
+      $('#tradeContainer').hide();
       if( !this.state.isMyTurn() ) {
+        $('#roll').attr('disabled', true);
         this.hexLayer.setListening(false);
         this.edgeLayer.setListening(false);
         this.vertexLayer.setListening(false);
@@ -532,13 +554,32 @@ GraphicalBoard.prototype = {
           log.log(0, 'BARON PHASE: Select a player whose settlement(s) are on that tile to steal from.');
         }
         else if(this.state.isBaronState(0)) {
-          this.hexLayer.setListening(false);
-          this.edgeLayer.setListening(true);
-          this.vertexLayer.setListening(true);
           tradeButton.html('Announce Trade');
+
           this.playerLayer.setListening(false);
+          if(this.state.getRound() < 2) {
+              endTurn.removeAttr('disabled');
+              $('#roll').attr('disabled', true);
+              this.hexLayer.setListening(false);
+              this.edgeLayer.setListening(true);
+              this.vertexLayer.setListening(true);
+          }
+          else if(this.state.getRoll()) {
+              $('#tradeContainer').show();
+              endTurn.removeAttr('disabled');
+              $('#roll').attr('disabled', true);
+              this.hexLayer.setListening(false);
+              this.edgeLayer.setListening(true);
+              this.vertexLayer.setListening(true);
+          }
+          else {
+              $('#roll').removeAttr('disabled');
+              this.hexLayer.setListening(false);
+              this.edgeLayer.setListening(false);
+              this.vertexLayer.setListening(false);
+          }
+
           this.drawHit();
-          endTurn.removeAttr('disabled');
           log.log(0, 'BUILD PHASE: You can now build settlements or roads.');
         }
         else if(this.state.isBaronState(3)) { // wait for other players
@@ -553,6 +594,8 @@ GraphicalBoard.prototype = {
           log.log(1, 'BARON PHASE: Waiting on players to discard half of their hands..('+overflows+')');
         }
       }
+
+
     },
 
     drawHit : function () {
@@ -721,10 +764,21 @@ GraphicalBoard.prototype = {
 
         $('#trade').attr('disabled', true);
         $('#exchange').attr('disabled', true);
-        if(wantCards.length > 0 && tradeCards.length > 0) {
+        if(wantCards.length > 0 && tradeCards.length > 0 && this.state.getRoll()) {
             $('#trade').removeAttr('disabled');
             if(this.state.isMyTurn())
                 $('#exchange').removeAttr('disabled');
+        }
+    },
+
+    drawDevs : function () {
+        var devContainer = $('#devContainer').empty();
+        var devHand;
+        var addString;
+        for(var p = 0; p < NUM_PLAYERS; p++) {
+            devHand = this.state.getDev(p);
+            addString = (p == this.state.getCurrentPlayer()) ? ' <== '+this.state.getDevQueue() : '';
+            $('<p>Player '+(p+1)+': '+devHand+(addString)+'</p>').appendTo(devContainer);
         }
     },
 
@@ -807,6 +861,21 @@ GraphicalBoard.prototype = {
       });
       log.log(0, '> BUILD '+type+'@'+coords);
    },
+
+   useDev : function (devNum) {
+      // if(devNum == 1) {     // knight
+        
+      // }
+      if(devNum == 2) {    // road building
+
+      }
+      else if(devNum == 3) {    // year of plenty
+
+      }
+      else if(devNum == 4) {    // monopoly
+
+      }      
+   },
 };
 
 socket.on('full', function () {
@@ -834,6 +903,8 @@ socket.on('players', function (data) {
 });
 
 socket.on('roll', function (data) {
+    gb.state.setRoll(data.roll);
+    gb.stateChange();
     log.log(1, 'Player '+(gb.state.getCurrentPlayer()+1)+' has rolled a '+data.roll+'.');
 });
 
@@ -854,6 +925,7 @@ socket.on('baronFinish', function (data) {
 
 socket.on('moveBaron', function (data) {
     gb.state.placeBaron(data.coords);
+    gb.stateChange();
     gb.drawBaron();
     log.log(1, 'BARON PHASE: The baron has been moved!');
 });
@@ -877,7 +949,7 @@ socket.on('gain', function (data) {
     if(data.action == 'roll')
       log.log(1, 'ROLL PHASE: Resources have been distributed for the roll.');
     else if(data.action == 'steal')
-      log.log(0, 'BARON PHASE: You have stolen resources from Player '+(data.oppPlayer));
+      log.log(0, 'BARON PHASE: You have stolen resources from Player '+(data.oppPlayer+1));
     else if(data.action == 'admin')
       log.log(0, 'You have given yourself resources.');
     else if(data.action == 'trade')
@@ -907,6 +979,7 @@ socket.on('tradeEnd', function () {
     log.log(1, 'TRADING: The announced trade has been accepted.');
     gb.state.setTradeCards([]);
     gb.state.setWantCards([]);
+    gb.stateChange();
     gb.drawTradeWindowContents();
 })
 ;
@@ -920,29 +993,50 @@ socket.on('buildAccept', function (data) {
     else if(data.type == 'city') {
         gb.drawCity(data.coords);
     }
+    // else if(data.type == 'dev')
     log.log(1, 'BUILD PHASE: Player ' + (gb.state.getCurrentPlayer() + 1) + ' has built a ' + data.type + '@' + data.coords);
 });
 
 socket.on('tradeAnnounce', function (data) {
     gb.state.setTradeCards(data.cardsGain);
     gb.state.setWantCards(data.cardsDeduct);
-
+    $('#tradeContainer').show();
     gb.drawTradeWindowContents();
+});
+
+socket.on('devGain', function (data) {
+   gb.state.giveDev(gb.state.getCurrentPlayer(), data.devNum);
+   gb.drawDevs();
+});
+
+socket.on('useDev', function (data) {
+    if(gb.state.isMyTurn()) {
+        gb.state.activateDev(gb.state.getCurrentPlayer(), data.devNum);
+        gb.useDev(data);
+    }
+    else
+        gb.state.activateDev(gb.state.getCurrentPlayer(), 0, data.devNum);
+    gb.stateChange();
+    gb.drawDevs();
 });
 
 socket.on('nextTurn', function (data) {
     log.log(1, 'Player ' + (gb.state.getCurrentPlayer()+1) + ' has ended their turn.');
+    gb.state.flushDevQueue();
     gb.state.setCurrentPlayer(data.currentPlayer);
     gb.updatePlayers();
 
     gb.state.setTradeCards([]);
     gb.state.setWantCards([]);
 
+    gb.state.setRound(data.round);
     gb.state.setOverflowPlayers([]);
     gb.state.setBaronState(0);
+    gb.state.setRoll(0);
 
     gb.stateChange();
     gb.drawTradeWindowContents();
+    gb.drawDevs();
 
     if(data.round < 2 && gb.state.isMyTurn()) {
         if(gb.state.getMyNum() == NUM_PLAYERS - 1) 
@@ -962,6 +1056,11 @@ socket.on('chatMsg', function (data) {
 
 $(function () {
     socket.emit('grabState', {});
+    $('#roll').click(function (evt) {
+      socket.emit('roll', {});
+      log.log(0, '> ROLL');
+    })
+
    $('#endTurn').click(function (evt) {
       socket.emit('endTurn', {});
       log.log(0, '> END TURN');
@@ -1028,4 +1127,19 @@ $(function () {
 
       gb.drawTradeWindowContents();      
    });
+
+   $('#buyDev').click(function (evt) {
+      socket.emit('buildRequest', {
+          type: 'dev',
+      });
+      log.log(0, '> BUY DEV');
+   });
+
+   $('#useDev').click(function (evt) {
+      socket.emit('useDevRequest', {
+        devNum: 1,
+      });
+      log.log(0, '> USE KNIGHT');
+   });
 });
+
