@@ -127,6 +127,8 @@ var GraphicalBoard = function (_width, _height, _state) {
         var pnum = wedge.getAttr('player_num');
         if(pnum == gb.state.getMyNum()) // no interactions for self
             return;
+        if(!gb.state.isRobbable(wedge.getAttr('player_num')))
+            return;
 
         if(gb.state.isBaronState(2)) {
           socket.emit('requestBaronSteal', {player_num: pnum});
@@ -232,7 +234,7 @@ GraphicalBoard.prototype = {
                 text = new Kinetic.Text({
                    x: 0,
                    y: 0,
-                   text: ''+state.grid[i][j].roll,
+                   text: ''+state.grid[i][j].roll+' ('+j+', '+i+')',
                    fontSize: 12,
                    fontFamily: 'Calibri',
                    fill: 'black',
@@ -548,10 +550,14 @@ GraphicalBoard.prototype = {
         player.setAttr('player_num', p);
         if(p != this.player_num) {   
           player.on('mouseover', function () {
+              if(!gb.state.isRobbable(this.getAttr('player_num')))
+                return;
               this.setScale(1.5);
               gb.playerLayer.draw();
           });
           player.on('mouseleave', function () {
+              if(!gb.state.isRobbable(this.getAttr('player_num')))
+                  return;
               this.setScale(1);
               gb.playerLayer.draw();
           });
@@ -774,7 +780,7 @@ socket.on('promptBaronMove', function (data) {
 });
 socket.on('promptBaronSteal', function (data) {
     gb.state.setBaronState(data.baronState);
-    // data.robbablePlayers;
+    gb.state.setRobbablePlayers(data.robbable);
     gb.stateChange();
     log.log(0, 'BARON PHASE: Select a player whose settlement(s) are on that tile to steal from.');
 });
@@ -833,12 +839,13 @@ socket.on('deduct', function (data) {
 });
 
 socket.on('tradeEnd', function () {
+    log.log(1, 'TRADING: The announced trade has been accepted.');
     gb.state.setTradeCards([]);
     gb.state.setWantCards([]);
     gb.stateChange();
     gb.drawTradeWindowContents();
-});
-
+})
+;
 socket.on('buildAccept', function (data) {  
     if(data.type == 'road') {
         gb.drawRoad(data.coords);
@@ -866,6 +873,8 @@ socket.on('nextTurn', function (data) {
 
     gb.state.setTradeCards([]);
     gb.state.setWantCards([]);
+
+    gb.state.setBaronState(0);
 
     gb.stateChange();
     gb.drawTradeWindowContents();
@@ -926,9 +935,11 @@ $(function () {
               tradeCards: gb.state.getTradeCards(),
               wantCards: gb.state.getWantCards(),
           });
+          log.log(0, '> ANNOUNCE TRADE '+tradeCards+' for '+wantCards);
       }
       else {
         socket.emit('tradeAccept', {});
+        log.log(0, '> ACCEPT TRADE');
       }
    })
 });
