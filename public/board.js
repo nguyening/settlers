@@ -214,7 +214,7 @@ var GraphicalBoard = function (_width, _height, _state) {
           });
        });
        thisCard.setAttrs({
-            selected: true,
+            selected: !oldVal,
             y: -10,
           });
        gb.hiddenLayer.draw();
@@ -567,12 +567,16 @@ GraphicalBoard.prototype = {
       var tradeButton = $('#trade');
       var tradeClear = $('#clearTrade');
       var endTurn = $('#endTurn');
+      var buyDev = $('#buyDev');
+      var useDev = $('#useDev');
 
+      buyDev.attr('disabled', true);
       endTurn.attr('disabled', true);
       tradeClear.attr('disabled', true);
+      useDev.attr('disabled', true);
+      $('#roll').attr('disabled', true);
       $('#tradeContainer').hide();
       if( !this.state.isMyTurn() ) {
-        $('#roll').attr('disabled', true);
         this.hexLayer.setListening(false);
         this.edgeLayer.setListening(false);
         this.vertexLayer.setListening(false);
@@ -599,18 +603,19 @@ GraphicalBoard.prototype = {
           log.log(0, 'BARON PHASE: Select a player whose settlement(s) are on that tile to steal from.');
         }
         else if(this.state.isBaronState(0)) {
+          useDev.removeAttr('disabled');
           tradeButton.html('Announce Trade');
 
           this.playerLayer.setListening(false);
           if(this.state.getRound() < 2) {
               endTurn.removeAttr('disabled');
-              $('#roll').attr('disabled', true);
               this.hexLayer.setListening(false);
               this.edgeLayer.setListening(true);
               this.vertexLayer.setListening(true);
           }
           else if(this.state.getRoll()) {
               $('#tradeContainer').show();
+              buyDev.removeAttr('disabled');
               endTurn.removeAttr('disabled');
               $('#roll').attr('disabled', true);
               this.hexLayer.setListening(false);
@@ -869,6 +874,11 @@ GraphicalBoard.prototype = {
         this.hiddenLayer.removeChildren();
         var myDevs = this.state.getDev(this.state.getMyNum())
                       .filter(function(dev) {return (dev > 0)}).sort();
+        var oldLength = myDevs.length;
+        if(this.state.isMyTurn()) { //only draw queue in hidden layer for current player
+          myDevs = myDevs.concat(this.state.getDevQueue().sort());
+        }
+
         var card;
         for(var i = 0; i < myDevs.length; i++) {
             card = new Kinetic.Rect({
@@ -880,6 +890,8 @@ GraphicalBoard.prototype = {
                 stroke: 'black',
                 strokeWidth: 2,
                 selected: false,
+                devNum: myDevs[i],
+                opacity: (i < oldLength) ? 1 : 0.5,
             });
             card.on('mouseover', function (evt) {
                if(!this.getAttr('selected')) {
@@ -1260,10 +1272,13 @@ $(function () {
    });
 
    $('#useDev').click(function (evt) {
+      var devNum = gb.hiddenLayer.getChildren().filter(function (card) {
+                      return card.getAttr('selected');
+                    })[0].getAttr('devNum');
       socket.emit('useDevRequest', {
-        devNum: 1,
+        devNum: devNum,
       });
-      log.log(0, '> USE KNIGHT');
+      log.log(0, '> USE DEV'+devNum);
    });
 });
 
