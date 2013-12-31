@@ -18,6 +18,9 @@ body {
 		background-color: darkblue;
 	}
 
+	#controls {
+		text-align: right;
+	}
 
 #interactions {
 	/*display: inline-block;
@@ -25,6 +28,10 @@ body {
 	float: left;
 	margin: 0 10px;
 }
+
+	#devContainer {
+		text-align: right;
+	}
 
 	#tradeContainer {
 		padding-bottom: 50px;
@@ -38,7 +45,7 @@ body {
 	#logContainer {
 		position: relative;
 		width: 500px;
-		height: 400px;
+		height: 200px;
 
 		vertical-align: top;
 	}
@@ -47,6 +54,8 @@ body {
 		font-size: 10px;
 		font-family: sans-serif;
 		word-wrap: break-word;
+		overflow-y: scroll;
+		height: 150px;
 	}
 
 	#chat {

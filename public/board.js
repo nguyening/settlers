@@ -20,6 +20,8 @@ var Log = function () {
         }
         else
           $('<p><span class="code">['+this.logTypes[code]+']</span> '+message+'</p>').appendTo(logarea);
+
+        logarea.scrollTop(logarea[0].scrollHeight);
     };
 };
 
@@ -45,6 +47,7 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.defaultEdgeStroke = 'black';
     this.terrainColoring = ['brown', 'chartreuse', 'grey', 'gold', 'forestgreen', 'white'];
     this.devColoring = ['grey', 'darkred', 'greenyellow', 'greenyellow', 'greenyellow', 'yellow'];
+    this.devLabeling = ['Unknown', 'Knight', 'Road Building', 'Year of Plenty', 'Monopoly', 'Victory Point'];
     this.playerColoring = ['red', 'blue', 'yellow', 'white'];
 
     this.cardWidth = 50;
@@ -183,7 +186,7 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.handWindow = new Kinetic.Stage({
       container: 'handWindow',
       width: this.canvasWidth,
-      height: this.cardHeight*2,
+      height: this.cardHeight*1.5,
     });
     this.handLayer = new Kinetic.Layer();
     this.handLayer.on('click', function (evt) {
@@ -271,7 +274,7 @@ GraphicalBoard.prototype = {
                 text = new Kinetic.Text({
                    x: 0,
                    y: 0,
-                   text: ''+state.grid[i][j].roll+' ('+j+', '+i+')',
+                   text: ''+state.grid[i][j].roll,//+' ('+j+', '+i+')',
                    fontSize: 16,
                    fontFamily: 'Calibri',
                    fill: 'black',
@@ -297,24 +300,7 @@ GraphicalBoard.prototype = {
                         offsetY: gb.offsetY,
                     });
 
-                    // var tempText = new Kinetic.Group({
-                    //   x: this.getAttr('x')-150,
-                    //   y: this.getAttr('y'),
-                    // });
-
-                    // var coords = this.getAttr('coords');
-                    // tempText.add(new Kinetic.Rect({x:0, y:0, width: 300, height: 20, fill: 'white'}));
-                    // tempText.add(new Kinetic.Text({
-                    //   x:0, y:0,
-                    //   text: JSON.stringify(HexagonGrid.corners(coords)),
-                    //   fontSize: 10,
-                    //   fontFamily: 'Calibri',
-                    //   fill: 'black',
-                    // }));
                     gb.baron.setAttr('tempBaron', tempBaron);
-                    // gb.baron.setAttr('tempText', tempText);
-
-                    // gb.decoLayer.add(tempText);
                     gb.decoLayer.add(tempBaron);
                     gb.decoLayer.draw();
                 });
@@ -322,8 +308,6 @@ GraphicalBoard.prototype = {
                 hexGroup.on('mouseout', function () { // mouseout to prevent bubbling
                     gb.baron.getAttr('tempBaron')
                       .remove();
-                    // gb.baron.getAttr('tempText')
-                    //   .remove();
                     gb.decoLayer.draw();
                 });
                 gridObject.face = hexGroup;
@@ -556,7 +540,7 @@ GraphicalBoard.prototype = {
       var coloring = this.playerColoring.slice();
       coloring = (coloring.splice(this.state.getMyNum(),1)).concat(coloring);
       $('#devWindow').css({
-          'border-bottom': '10px solid '+coloring[0],
+          'border-bottom': '15px solid '+coloring[0],
           'border-left': '5px solid '+coloring[1],
           'border-top': '5px solid '+coloring[2],
           'border-right': '5px solid '+coloring[3],
@@ -575,7 +559,7 @@ GraphicalBoard.prototype = {
       tradeClear.attr('disabled', true);
       useDev.attr('disabled', true);
       $('#roll').attr('disabled', true);
-      $('#tradeContainer').hide();
+      // $('#tradeContainer').hide();
       if( !this.state.isMyTurn() ) {
         this.hexLayer.setListening(false);
         this.edgeLayer.setListening(false);
@@ -614,7 +598,7 @@ GraphicalBoard.prototype = {
               this.vertexLayer.setListening(true);
           }
           else if(this.state.getRoll()) {
-              $('#tradeContainer').show();
+              // $('#tradeContainer').show();
               buyDev.removeAttr('disabled');
               endTurn.removeAttr('disabled');
               $('#roll').attr('disabled', true);
@@ -819,6 +803,12 @@ GraphicalBoard.prototype = {
             if(this.state.isMyTurn())
                 $('#exchange').removeAttr('disabled');
         }
+        else if(this.state.getActiveDev() == 3 && 
+          wantCards.length == 2 && 
+          tradeCards.length == 0 &&
+          this.state.isMyTurn()) {
+            $('#exchange').removeAttr('disabled');
+        }
     },
 
     drawDevs : function () {
@@ -894,16 +884,30 @@ GraphicalBoard.prototype = {
                 opacity: (i < oldLength) ? 1 : 0.5,
             });
             card.on('mouseover', function (evt) {
+                var label = new Kinetic.Text({
+                  x: gb.canvasWidth/2,
+                  y: gb.cardHeight,
+                  text: gb.devLabeling[this.getAttr('devNum')],
+                  fill: 'black',
+                  fontSize: 12,
+                  fontFamily: 'Calibri',
+                  align: 'center',
+                });
+                this.setAttr('label', label);
+                gb.tableBorder.add(label);
                if(!this.getAttr('selected')) {
                    this.move(0, -10);
-                  gb.hiddenLayer.draw();
+                   gb.hiddenLayer.draw();
                }
+                gb.tableBorder.draw();
             });
             card.on('mouseout', function (evt) {
+              this.getAttr('label').remove();
               if(!this.getAttr('selected')) {
                    this.move(0, 10);
-                  gb.hiddenLayer.draw();
+                    gb.hiddenLayer.draw();
               }
+              gb.tableBorder.draw();
             });
             this.hiddenLayer.add(card);
         }
@@ -990,21 +994,6 @@ GraphicalBoard.prototype = {
       });
       log.log(0, '> BUILD '+type+'@'+coords);
    },
-
-   useDev : function (devNum) {
-      // if(devNum == 1) {     // knight
-        
-      // }
-      if(devNum == 2) {    // road building
-
-      }
-      else if(devNum == 3) {    // year of plenty
-
-      }
-      else if(devNum == 4) {    // monopoly
-
-      }      
-   },
 };
 
 socket.on('full', function () {
@@ -1084,7 +1073,7 @@ socket.on('gain', function (data) {
     else if(data.action == 'trade')
       log.log(0, 'TRADING: You have gained resources from the current player.');
     else if(data.action == 'exchange')
-      log.log(0, 'EXCHANGE: You have lost resources from exchanging.');
+      log.log(0, 'EXCHANGE: You have gained resources from exchanging.');
 });
 
 socket.on('deduct', function (data) {
@@ -1129,7 +1118,7 @@ socket.on('buildAccept', function (data) {
 socket.on('tradeAnnounce', function (data) {
     gb.state.setTradeCards(data.cardsGain);
     gb.state.setWantCards(data.cardsDeduct);
-    $('#tradeContainer').show();
+    // $('#tradeContainer').show();
     gb.drawTradeWindowContents();
 });
 
@@ -1143,7 +1132,6 @@ socket.on('devGain', function (data) {
 socket.on('useDev', function (data) {
     if(gb.state.isMyTurn()) {
         gb.state.activateDev(gb.state.getCurrentPlayer(), data.devNum);
-        gb.useDev(data);
     }
     else
         gb.state.activateDev(gb.state.getCurrentPlayer(), 0, data.devNum);
@@ -1154,6 +1142,7 @@ socket.on('useDev', function (data) {
 socket.on('nextTurn', function (data) {
     log.log(1, 'Player ' + (gb.state.getCurrentPlayer()+1) + ' has ended their turn.');
     gb.state.flushDevQueue();
+    gb.state.resetActiveDev();
     gb.state.setCurrentPlayer(data.currentPlayer);
     gb.updatePlayers();
 
