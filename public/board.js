@@ -44,6 +44,7 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.defaultVertexFill = 'black';
     this.defaultEdgeStroke = 'black';
     this.terrainColoring = ['brown', 'chartreuse', 'grey', 'gold', 'forestgreen', 'white'];
+    this.devColoring = ['grey', 'darkred', 'greenyellow', 'greenyellow', 'greenyellow', 'yellow'];
     this.playerColoring = ['red', 'blue', 'yellow', 'white'];
 
     this.cardWidth = 50;
@@ -190,6 +191,38 @@ var GraphicalBoard = function (_width, _height, _state) {
         card.setAttr('selected', !card.getAttr('selected'));
     });
     this.handWindow.add(this.handLayer);
+
+    // DEV
+    this.devWindow = new Kinetic.Stage({
+      container: 'devWindow',
+      width: this.canvasWidth,
+      height: this.cardHeight*3,
+    });
+    this.tableBorder = new Kinetic.Layer();
+    this.tableLayer = new Kinetic.Layer();
+    this.hiddenLayer = new Kinetic.Layer({
+        y: this.cardHeight*2,
+    });
+
+    this.hiddenLayer.on('click', function (evt) {
+       var thisCard = evt.targetNode;
+       var oldVal = thisCard.getAttr('selected');
+       this.getChildren().each(function (card) {
+          card.setAttrs({
+            selected: false,
+            y: 0,
+          });
+       });
+       thisCard.setAttrs({
+            selected: true,
+            y: -10,
+          });
+       gb.hiddenLayer.draw();
+    });
+
+    this.devWindow.add(this.tableBorder);
+    this.devWindow.add(this.tableLayer);
+    this.devWindow.add(this.hiddenLayer);
 
     this.init.apply(this, [this.state]);
 };
@@ -491,6 +524,7 @@ GraphicalBoard.prototype = {
       this.drawHand();
       this.drawDevs();
 
+      //trade
       var row, col, rect;
       var rectGroup = new Kinetic.Group({
           target: 'mine',
@@ -516,6 +550,17 @@ GraphicalBoard.prototype = {
       this.tradeButtonsLayer.add(rectGroup);
       this.drawTradeWindowContents();
       this.tradeWindow.draw();
+
+
+      //dev
+      var coloring = this.playerColoring.slice();
+      coloring = (coloring.splice(this.state.getMyNum(),1)).concat(coloring);
+      $('#devWindow').css({
+          'border-bottom': '10px solid '+coloring[0],
+          'border-left': '5px solid '+coloring[1],
+          'border-top': '5px solid '+coloring[2],
+          'border-right': '5px solid '+coloring[3],
+      });
     },
 
     stateChange : function () {
@@ -772,14 +817,86 @@ GraphicalBoard.prototype = {
     },
 
     drawDevs : function () {
-        var devContainer = $('#devContainer').empty();
-        var devHand;
-        var addString;
+        this.tableLayer.removeChildren();
+        var playerShownDevs, devHand, dev;
+        var points = [
+            [this.canvasWidth/2, 13/8*this.cardHeight],
+            [this.cardHeight/4, this.cardHeight],
+            [this.canvasWidth/2, this.cardHeight/4],
+            [this.canvasWidth-this.cardHeight/4, this.cardHeight],
+        ];
         for(var p = 0; p < NUM_PLAYERS; p++) {
-            devHand = this.state.getDev(p);
-            addString = (p == this.state.getCurrentPlayer()) ? ' <== '+this.state.getDevQueue() : '';
-            $('<p>Player '+(p+1)+': '+devHand+(addString)+'</p>').appendTo(devContainer);
+            playerShownDevs = new Kinetic.Group({
+              x: points[p][0],
+              y: points[p][1],
+              player_num: p, 
+            });
+            
+            if(p == 0) {
+              devHand = this.state.getDev(this.state.getMyNum())
+                          .filter(function(dev) {return (dev < 0);})
+                          .map(function(dev) {return dev*-1;});
+            }
+            else if(p == this.state.getMyNum())
+              devHand = this.state.getDev(0);
+            else
+              devHand = this.state.getDev(p);
+
+            devHand = devHand.sort();
+            for(var i = 0; i < devHand.length; i++) {
+              dev = devHand[i];
+              dev = dev > 0 ? dev : -1*dev;
+              playerShownDevs.add(new Kinetic.Rect({
+                x: i*this.cardWidth/8,
+                y: 0,
+                width: this.cardWidth/4,
+                height: this.cardHeight/4,
+                fill: this.devColoring[dev],
+                stroke: 'black', 
+                strokeWidth: 1,
+              }));
+            }
+
+            playerShownDevs.setAttrs({
+              offsetX: devHand.length*this.cardWidth/16,
+              offsetY: this.cardHeight/8,
+              rotationDeg: p*90,
+            });
+            this.tableLayer.add(playerShownDevs);
         }
+        this.tableLayer.draw();
+
+        this.hiddenLayer.removeChildren();
+        var myDevs = this.state.getDev(this.state.getMyNum())
+                      .filter(function(dev) {return (dev > 0)}).sort();
+        var card;
+        for(var i = 0; i < myDevs.length; i++) {
+            card = new Kinetic.Rect({
+                x: i*this.cardWidth/2,
+                y: 0,
+                width: this.cardWidth,
+                height: this.cardHeight,
+                fill: this.devColoring[myDevs[i]],
+                stroke: 'black',
+                strokeWidth: 2,
+                selected: false,
+            });
+            card.on('mouseover', function (evt) {
+               if(!this.getAttr('selected')) {
+                   this.move(0, -10);
+                  gb.hiddenLayer.draw();
+               }
+            });
+            card.on('mouseout', function (evt) {
+              if(!this.getAttr('selected')) {
+                   this.move(0, 10);
+                  gb.hiddenLayer.draw();
+              }
+            });
+            this.hiddenLayer.add(card);
+        }
+        this.hiddenLayer.setOffsetX(-(this.canvasWidth/2-myDevs.length*this.cardWidth/4))
+        this.hiddenLayer.draw();
     },
 
     drawRoad : function (edge) {
@@ -1006,6 +1123,8 @@ socket.on('tradeAnnounce', function (data) {
 
 socket.on('devGain', function (data) {
    gb.state.giveDev(gb.state.getCurrentPlayer(), data.devNum);
+   if(data.action == 'admin')
+        gb.state.flushDevQueue();
    gb.drawDevs();
 });
 
@@ -1070,6 +1189,11 @@ $(function () {
         var resType = parseInt($('#resource').val());
        socket.emit('giveResource', {resource: resType});
        log.log(0, '> GIVE RESOURCE '+resType);
+   });
+
+  $('#giveDev').click(function (evt) {
+       socket.emit('giveDev', {});
+       log.log(0, '> GRAB DEV');
    });
 
    $('#discard').click(function (evt) {
