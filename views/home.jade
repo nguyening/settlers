@@ -14,6 +14,8 @@ html
             div#board
             div#handWindow
             div#controls
+               input#resource
+               button#giveResource Give
                button#roll Roll
                button#discard Discard
                button#endTurn End Turn
@@ -25,6 +27,8 @@ html
             div#tradeContainer
                .header
                   p Trading
+                     span.left You
+                     span.right Them 
                div#tradeWindow
                div#tradeButtons
                   button#trade Accept Trade
@@ -34,5 +38,6 @@ html
                .header
                   p Chat/Log
                div#log
+               div#chatlog
                div#chat
                   input#dialog

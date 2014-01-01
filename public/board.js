@@ -149,6 +149,8 @@ var GraphicalBoard = function (_width, _height, _state) {
     this.theirResourcesLayer = new Kinetic.Layer();
 
     this.tradeButtonsLayer.on('click', function (evt) {
+        if(!gb.state.isMyTurn())
+            return;
         var button = evt.targetNode;
         var target = button.getParent().getAttr('target');
         if(target == 'mine') {
@@ -800,8 +802,10 @@ GraphicalBoard.prototype = {
         $('#exchange').attr('disabled', true);
         if(wantCards.length > 0 && tradeCards.length > 0 && this.state.getRoll()) {
             $('#trade').removeAttr('disabled');
-            if(this.state.isMyTurn())
+            if(this.state.isMyTurn()) {
                 $('#exchange').removeAttr('disabled');
+                $('#clearTrade').html('Cancel');
+            }
         }
         else if(this.state.getActiveDev() == 3 && 
           wantCards.length == 2 && 
@@ -1093,14 +1097,19 @@ socket.on('deduct', function (data) {
       
 });
 
-socket.on('tradeEnd', function () {
-    log.log(1, 'TRADING: The announced trade has been accepted.');
+socket.on('tradeEnd', function (data) {
+    if(data.reason == 'accept')
+      log.log(1, 'TRADING: The announced trade has been accepted.');
+    else if(data.reason == 'cancel')
+      log.log(1, 'TRADING: The announced trade has been cancelled.');
+
     gb.state.setTradeCards([]);
     gb.state.setWantCards([]);
     gb.stateChange();
     gb.drawTradeWindowContents();
-})
-;
+    $('#clearTrade').html('Clear');
+});
+
 socket.on('buildAccept', function (data) {  
     if(data.type == 'road') {
         gb.drawRoad(data.coords);
@@ -1116,8 +1125,8 @@ socket.on('buildAccept', function (data) {
 });
 
 socket.on('tradeAnnounce', function (data) {
-    gb.state.setTradeCards(data.cardsGain);
-    gb.state.setWantCards(data.cardsDeduct);
+    gb.state.setTradeCards(data.cardsDeduct);
+    gb.state.setWantCards(data.cardsGain);
     // $('#tradeContainer').show();
     gb.drawTradeWindowContents();
 });
@@ -1228,6 +1237,8 @@ $(function () {
               wantCards: wantCards,
           });
           log.log(0, '> ANNOUNCE TRADE '+tradeCards+' for '+wantCards);
+
+          $('#clearTrade').html('Cancel');
       }
       else {
         socket.emit('tradeAccept', {});
@@ -1247,10 +1258,10 @@ $(function () {
    });   
 
    $('#clearTrade').click(function (evt) {
-      gb.state.setTradeCards([]);
-      gb.state.setWantCards([]);
-
-      gb.drawTradeWindowContents();      
+        socket.emit('tradeAnnounceCancel',{});
+        gb.state.setTradeCards([]);
+        gb.state.setWantCards([]);
+        gb.drawTradeWindowContents();
    });
 
    $('#buyDev').click(function (evt) {

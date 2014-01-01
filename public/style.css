@@ -34,6 +34,7 @@ body {
 	}
 
 	#tradeContainer {
+		width: 500px;
 		padding-bottom: 50px;
 	}
 
@@ -79,4 +80,12 @@ body {
 
 .header p {
 	margin: 0;
+}
+
+.right {
+	float: right;
+}
+
+.left {
+	float: left;
 }
