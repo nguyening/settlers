@@ -6,19 +6,20 @@ html
       script(src='/socket.io/socket.io.js')
       script(src="./require.js")
       script(src="./kinetic-v4.7.4.min.js")
-      script(src="./board.js")
+      script(src="/lib/client/client.js")
       link(rel="stylesheet", href="style.css")
    body
       div#container
          div#mainGame
             div#board
-            div#handWindow
-            div#controls
-               input#resource
-               button#giveResource Give
-               button#roll Roll
-               button#discard Discard
-               button#endTurn End Turn
+            div#bottomPanel
+               div#handWindow
+               div#controls
+                  // input#resource
+                  // button#giveResource Give
+                  button#roll Roll
+                  button#discard Discard
+                  button#endTurn End Turn
          div#interactions
             div#devContainer
                div#devWindow
@@ -27,13 +28,13 @@ html
             div#tradeContainer
                .header
                   p Trading
-                     span.left You
-                     span.right Them 
+                     span.left Give
+                     span.right Receive
                div#tradeWindow
                div#tradeButtons
                   button#trade Accept Trade
                   button#exchange Exchange
-                  button#clearTrade Clear
+                  button#cancelTrade Cancel
             div#logContainer
                .header
                   p Chat/Log

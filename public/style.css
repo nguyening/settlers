@@ -18,7 +18,14 @@ body {
 		background-color: darkblue;
 	}
 
+	#handWindow {
+		display: inline-block;
+		width: 300px;
+	}
+
 	#controls {
+		display: inline-block;
+		width: 200px;
 		text-align: right;
 	}
 

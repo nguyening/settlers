@@ -1,5 +1,5 @@
 // require
-var LogicalBoard = require('./lib/logic.js').LogicalBoard;
+var LogicalBoard = require('./lib/server/logic.js').LogicalBoard;
 
 var jade = require('jade');
 var express = require('express'), app = express();
