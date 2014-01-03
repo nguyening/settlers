@@ -157,7 +157,7 @@ io.on('connection', function (socket) {
 		evt.args[0].invoker = {
 			sessid: sessid,
 			socket: socket.id,
-			seat: session.seat,
+			seat: parseInt(session.seat),
 		};
 
 		var room = rooms[session.room];
