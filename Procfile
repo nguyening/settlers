@@ -1,1 +1,1 @@
-web: node --debug server.js
+web: node --debug app.js
