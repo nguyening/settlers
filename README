@@ -1,15 +1,17 @@
-http://www-cs-students.stanford.edu/~amitp/game-programming/grids/
-http://www.redblobgames.com/grids/hexagons/#basics
+REFERENCES 
+	http://www-cs-students.stanford.edu/~amitp/game-programming/grids/
+	http://www.redblobgames.com/grids/hexagons/#basics
 
-http://www.igorkromin.net/?x=entry:entry130430-213220
+	http://www.igorkromin.net/?x=entry:entry130430-213220
 
 TODO
-
-=unit testing
-=...organize and cleanup
-	= consistent message names verbNoun or nounVerb...
-=devo cards
-=limit resources i.e. bank runs out?
-=no uniform trades (1 wool for 2 wools)
-=responses for invalid queries
-=flood detection
+	unit testing
+	monopoly dev card
+	longest road, largest army
+	resource counts for players
+	get rid of 7 on desert
+	3 player rooms
+	limit resources i.e. bank runs out?
+	flood detection
+	consistent message names verbNoun or nounVerb...
+	player nicknames
