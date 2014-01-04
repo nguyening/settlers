@@ -18,8 +18,8 @@ app.configure(function() {
 		secret: 'secret',
 		key: 'express.sid',
 		cookie: {										// cookies expire after 10 minutes
-			expires: new Date(Date.now() + 60 * 10000), 
-			maxAge: 60*10000,
+			expires: new Date(Date.now() + 86400), 
+			maxAge: 86400,
 		},
 	}));
 
@@ -92,18 +92,19 @@ io.on('connection', function (socket) {
 	var sessid = socket.handshake.sessionID,
 		session = socket.handshake.session;
 
-	var refreshCookie = setInterval(function () {
-		session.reload(function () {
-			session.touch().save();	// resetting maxAge and expires
-		});
-		console.log(JSON.stringify({
-			type: 'refresh',
-			data: {
-				sessid: sessid,
-				socket: socket.id,
-			},
-		}));
-	}, 60 * 1000);	// reset every minute
+	// no way to refresh browser cookie ):
+	// var refreshCookie = setInterval(function () {
+	// 	session.reload(function () {
+	// 		session.touch().save();	// resetting maxAge and expires
+	// 	});
+	// 	console.log(JSON.stringify({
+	// 		type: 'refresh',
+	// 		data: {
+	// 			sessid: sessid,
+	// 			socket: socket.id,
+	// 		},
+	// 	}));
+	// }, 60 * 1000);	// reset every minute
 
 	console.log(JSON.stringify({
 		type: 'connection',
@@ -176,5 +177,6 @@ io.on('connection', function (socket) {
 
 	socket.on('disconnect', function () {
 		rooms[session.room].remove(sessid, socket.id, session.seat);
+		// clearInterval(refreshCookie);
 	});
 });
