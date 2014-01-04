@@ -32,12 +32,13 @@ app.configure(function() {
 //************************************************************************
 
 app.get('/', function(req, res){
-	res.render('home.jade', {section: 'Main'});
-});
-
-app.get('/game', function (req, res) {
+	// res.render('home.jade', {section: 'Main'});
 	res.render('game.jade', {section: 'Game'});
 });
+
+// app.get('/game', function (req, res) {
+// 	res.render('game.jade', {section: 'Game'});
+// });
 
 server.listen(process.env.PORT || 3000);	// heroku dynamically assigns port
 console.log('Express server started on port %s', server.address().port);
