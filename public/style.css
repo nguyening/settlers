@@ -1,98 +1,70 @@
-body {
+#game {
+	display: none;
+}
+
+#board .kineticjs-content {
+	background: darkblue;
+}
+
+#chat {
+	width: 500px;
+}
+
+#log {
+	overflow-y: scroll;
+	height: 100px;
+}
+
+#log p {
 	margin: 0;
+	font-size: .7em;
 }
 
-#container {
+#log .code.INFO {}
+#log .code.SUCCESS {color: green;}
+#log .code.WARN {color: gold;}
+#log .code.ERROR {color: red;}
+#log .code.CHAT {color: black;}
 
-}
-
-#mainGame {
-	float: left;
-}
-
-	#board {
-		display: inline-block;
-		text-align: center;
-	}
-	#board .kineticjs-content {
-		background-color: darkblue;
-	}
-
-	#handWindow {
-		display: inline-block;
-		width: 300px;
-	}
-
-	#controls {
-		display: inline-block;
-		width: 200px;
-		text-align: right;
-	}
-
-#interactions {
-	/*display: inline-block;
-	vertical-align: top;*/
-	float: left;
-	margin: 0 10px;
-}
-
-	#devContainer {
-		text-align: right;
-	}
-
-	#tradeContainer {
-		width: 500px;
-		padding-bottom: 50px;
-	}
-
-	#tradeWindow {
-		display: inline-block;
-		background-color: white;
-	}
-
-	#logContainer {
-		position: relative;
-		width: 500px;
-		height: 200px;
-
-		vertical-align: top;
-	}
-
-	#log {
-		font-size: 10px;
-		font-family: sans-serif;
-		word-wrap: break-word;
-		overflow-y: scroll;
-		height: 150px;
-	}
-
-	#chat {
-		position: absolute;
-		bottom: 0;
-	}
-
-	#dialog {
-		width: 500px;
-	}
-
-	#tradeButtons {
-		text-align: center;
-	}
-
-.header {
+#devWindow, #tradeWindow {
 	text-align: center;
-	font-size: 12px;
-	font-weight: bold;
 }
 
-.header p {
-	margin: 0;
+.tradeLabel {
+	position: relative;
+	top: -125px;
 }
 
-.right {
-	float: right;
-}
-
-.left {
+.tradeLabel.left {
 	float: left;
+	-webkit-transform: rotate(-90deg); 
+	-moz-transform: rotate(-90deg);	
+	-o-transform: rotate(-90deg);
+	filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=3);
 }
+
+.tradeLabel.right {
+	float: right;
+	-webkit-transform: rotate(90deg); 
+	-moz-transform: rotate(90deg);	
+	-o-transform: rotate(90deg);
+	filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=1);
+}
+
+#priceChart {
+	font-size: .7em;
+}
+
+ul.resources {
+	display: inline-block;
+}
+
+ul.resources li:after {
+	content: '\2588';
+}
+
+.wood { color: forestgreen; }
+.brick { color: brown; }
+.wool { color: chartreuse; }
+.wheat { color: gold; }
+.coal { color: grey; }

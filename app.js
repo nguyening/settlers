@@ -11,7 +11,6 @@ var jade = require('jade'),
 
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
-app.set("view options", { layout: false });
 app.configure(function() {
 	app.use(express.cookieParser());
 	app.use(express.session({
@@ -33,7 +32,11 @@ app.configure(function() {
 //************************************************************************
 
 app.get('/', function(req, res){
-	res.render('game.jade');
+	res.render('home.jade', {section: 'Main'});
+});
+
+app.get('/game', function (req, res) {
+	res.render('game.jade', {section: 'Game'});
 });
 
 server.listen(process.env.PORT || 3000);	// heroku dynamically assigns port
@@ -46,7 +49,7 @@ console.log('Express server started on port %s', server.address().port);
 var Session = connect.middleware.session.Session;
 
 io = sio_wildcard(io).listen(server);
-io.set
+
 io.configure(function () {
 // Disabling web-sockets
 //   io.set("transports", ["xhr-polling"]); 
@@ -167,5 +170,10 @@ io.on('connection', function (socket) {
 		}));
 
 		room.raiseEvent(evt.name, evt.args[0]);
+	});
+
+
+	socket.on('disconnect', function () {
+		rooms[session.room].remove(sessid, socket.id, session.seat);
 	});
 });

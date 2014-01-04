@@ -1,44 +1,62 @@
-doctype html
-html
-   head
-      title Settlers
-      script(src='https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js')
-      script(src='/socket.io/socket.io.js')
-      script(src="./require.js")
-      script(src="./kinetic-v4.7.4.min.js")
-      script(src="/lib/client/client.js")
-      link(rel="stylesheet", href="style.css")
-   body
-      div#container
-         div#mainGame
-            div#board
-            div#bottomPanel
-               div#handWindow
-               div#controls
-                  // input#resource
-                  // button#giveResource Give
-                  button#roll Roll
-                  button#discard Discard
-                  button#endTurn End Turn
-         div#interactions
-            div#devContainer
-               div#devWindow
-               button#buyDev Buy Dev
-               button#useDev Use Dev
-            div#tradeContainer
-               .header
-                  p Trading
-                     span.left Give
-                     span.right Receive
-               div#tradeWindow
-               div#tradeButtons
-                  button#trade Accept Trade
-                  button#exchange Exchange
-                  button#cancelTrade Cancel
-            div#logContainer
-               .header
-                  p Chat/Log
+extend layout
+block scripts
+   script(src='/socket.io/socket.io.js')
+   script(src="./kinetic-v4.7.4.min.js")
+   script(src="/lib/client/client.js")
+block content
+   div#wait.row
+      div.col-md-12
+         h1#waitmsg Waiting for other players to join...
+   div#game.row
+      div.col-md-6
+         div#board.row
+         div.row
+            div#chat
                div#log
-               div#chatlog
-               div#chat
-                  input#dialog
+               input#dialog.form-control
+      div.col-md-6
+         div.row
+            h4 Development Cards
+            div#devWindow
+            div.btn-group.btn-group-justified.btn-group-xs
+               a#useDev.btn.btn-default Use Dev. Card
+               a#buyDev.btn.btn-default Buy Dev. Card
+         div.row
+            h4 Trading
+            div#tradeWindow
+            div.btn-group.btn-group-justified.btn-group-xs
+               a#trade.btn.btn-default Accept Trade
+               a#exchange.btn.btn-default Exchange
+               a#cancelTrade.btn.btn-default Cancel
+            h4.tradeLabel.left G I V E
+            h4.tradeLabel.right T A K E
+         div.row
+            div.center-block
+               div#handWindow.pull-left
+               ul#priceChart.pull-left.list-group
+                  li.list-group-item.clearfix settlement 
+                     ul.resources.list-inline.pull-right
+                        li.wood
+                        li.brick
+                        li.wheat
+                        li.wool
+                  li.list-group-item road
+                     ul.resources.list-inline.pull-right
+                        li.wood
+                        li.brick
+                  li.list-group-item city
+                     ul.resources.list-inline.pull-right
+                        li.wheat
+                        li.wheat
+                        li.wheat
+                        li.coal
+                        li.coal
+                  li.list-group-item dev. card
+                     ul.resources.list-inline.pull-right
+                        li.wool
+                        li.wheat
+                        li.coal
+            div.btn-group.btn-group-justified
+               a#roll.btn.btn-default Roll
+               a#discard.btn.btn-default Discard
+               a#endTurn.btn.btn-default End Turn
